@@ -22,3 +22,13 @@ export function daysUntil(dateIso: string): number {
   if (Number.isNaN(now) || Number.isNaN(then)) return 0
   return Math.round((then - now) / 86400000)
 }
+
+export function getDeadlineMeta(
+  dateIso: string,
+): { label: string; className: string } {
+  const days = daysUntil(dateIso)
+  if (days < 0) return { label: 'Closed', className: 'text-neutral-500' }
+  if (days === 0) return { label: 'Today', className: 'bg-amber-50 text-amber-700' }
+  if (days <= 5) return { label: `${days} days left`, className: 'bg-rose-50 text-rose-700' }
+  return { label: `${days} days left`, className: 'bg-neutral-100 text-neutral-600' }
+}

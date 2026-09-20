@@ -22,6 +22,8 @@ export interface Job {
   postedAt: string
   skills: string[]
   saved: boolean
+  description: string
+  applicationUrl?: string
 }
 
 export interface Application {

@@ -22,7 +22,7 @@ export const user = {
   email: 'manas@example.com',
 }
 
-const salaryNeutralJobs: Job[] = [
+const jobs: Job[] = [
   {
     id: 'job-msft-swe',
     company: 'Microsoft',
@@ -34,6 +34,9 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-10',
     skills: ['React', 'TypeScript', 'C#', 'System Design'],
     saved: true,
+    description:
+      'Join the Azure Cloud team and build resilient services used by millions of developers around the world. You will work closely with a mentor, ship real features and present your work to the wider engineering group.',
+    applicationUrl: 'https://careers.microsoft.com/mock/software-engineer-intern',
   },
   {
     id: 'job-amzn-sde',
@@ -46,6 +49,9 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-12',
     skills: ['Java', 'Data Structures', 'Algorithms', 'AWS'],
     saved: false,
+    description:
+      'Build high-scale software for Amazon Pay with full ownership of features from design to launch. Interns receive bar-raising mentorship and a clear path to a full-time SDE offer.',
+    applicationUrl: 'https://amazon.jobs/mock/sde-intern',
   },
   {
     id: 'job-google-swe',
@@ -58,6 +64,9 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-15',
     skills: ['Python', 'Algorithms', 'Distributed Systems'],
     saved: false,
+    description:
+      'Work on projects that touch billions of users across Search, Cloud or YouTube. Candidates should be comfortable with algorithms, data structures and writing clean, testable code.',
+    applicationUrl: 'https://careers.google.com/mock/swe-summer-intern',
   },
   {
     id: 'job-adobe-fe',
@@ -70,6 +79,9 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-11',
     skills: ['JavaScript', 'React', 'CSS', 'Web Accessibility'],
     saved: true,
+    description:
+      'Help craft delightful, accessible experiences for Adobe Creative Cloud. You will pair with senior engineers and designers to build polished UI components that ship to production.',
+    applicationUrl: 'https://careers.adobe.com/mock/frontend-intern',
   },
   {
     id: 'job-atlassian-be',
@@ -82,6 +94,9 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-09',
     skills: ['Go', 'Java', 'REST APIs', 'PostgreSQL'],
     saved: false,
+    description:
+      'Design and extend the backend services that power Jira and Confluence for teams everywhere. Work with modern Go and Java microservices running on AWS.',
+    applicationUrl: 'https://www.atlassian.com/careers/mock/backend-intern',
   },
   {
     id: 'job-infosys-eng',
@@ -94,6 +109,129 @@ const salaryNeutralJobs: Job[] = [
     postedAt: '2026-09-05',
     skills: ['Java', 'SQL', 'Spring Boot', 'React'],
     saved: false,
+    description:
+      'Start your engineering career in Infosys digital practice building enterprise applications for global clients. Includes a structured learning program and certification tracks.',
+    applicationUrl: 'https://www.infosys.com/careers/mock/systems-engineer-trainee',
+  },
+  {
+    id: 'job-stripe-swe',
+    company: 'Stripe',
+    title: 'Software Engineer, New Grad',
+    location: 'Remote',
+    type: 'Full-time',
+    experience: 'Fresher',
+    deadline: '2026-10-12',
+    postedAt: '2026-09-14',
+    skills: ['Go', 'Ruby', 'SQL', 'Distributed Systems'],
+    saved: true,
+    description:
+      'Build the economic infrastructure of the internet. New grads tackle real payment problems end to end with a strong support network and quarterly hack days.',
+    applicationUrl: 'https://stripe.com/jobs/mock/new-grad-software-engineer',
+  },
+  {
+    id: 'job-uber-ml',
+    company: 'Uber',
+    title: 'Machine Learning Engineer',
+    location: 'Gurugram, Haryana',
+    type: 'Full-time',
+    experience: '1-2 years',
+    deadline: '2026-10-20',
+    postedAt: '2026-09-08',
+    skills: ['Python', 'PyTorch', 'ML', 'Statistics'],
+    saved: false,
+    description:
+      'Improve pricing, ETA and marketplace predictions that power hundreds of millions of trips. Strong Python and applied ML skills with production experience preferred.',
+    applicationUrl: 'https://www.uber.com/careers/mock/ml-engineer',
+  },
+  {
+    id: 'job-flipkart-sde',
+    company: 'Flipkart',
+    title: 'Software Development Engineer II',
+    location: 'Bengaluru, Karnataka',
+    type: 'Full-time',
+    experience: '3-5 years',
+    deadline: '2026-11-02',
+    postedAt: '2026-09-13',
+    skills: ['Java', 'Spring Boot', 'Kafka', 'Microservices'],
+    saved: false,
+    description:
+      'Own large-scale systems behind India largest e-commerce marketplace. Drive architecture decisions across catalog, payments and logistics with a fast-moving team.',
+    applicationUrl: 'https://www.flipkartcareers.com/mock/sde-ii',
+  },
+  {
+    id: 'job-zomato-fe',
+    company: 'Zomato',
+    title: 'Frontend Engineer',
+    location: 'Gurugram, Haryana',
+    type: 'Full-time',
+    experience: '1-2 years',
+    deadline: '2026-10-25',
+    postedAt: '2026-09-07',
+    skills: ['React', 'TypeScript', 'GraphQL', 'Next.js'],
+    saved: false,
+    description:
+      'Shape the food ordering experience used by millions every day. Focus on performance, animation and delightful micro-interactions in the app and web platforms.',
+    applicationUrl: 'https://www.zomato.com/careers/mock/frontend-engineer',
+  },
+  {
+    id: 'job-netflix-de',
+    company: 'Netflix',
+    title: 'Data Engineering Intern',
+    location: 'Remote',
+    type: 'Internship',
+    experience: 'Fresher',
+    deadline: '2026-10-18',
+    postedAt: '2026-09-16',
+    skills: ['Python', 'SQL', 'Spark', 'ETL'],
+    saved: true,
+    description:
+      'Work with petabytes of streaming data that inform content and personalization decisions. Interns get global exposure to modern data infrastructure and tooling.',
+    applicationUrl: 'https://jobs.netflix.com/mock/data-engineering-intern',
+  },
+  {
+    id: 'job-arcesium-sde',
+    company: 'Arcesium',
+    title: 'Associate Software Engineer',
+    location: 'Hyderabad, Telangana',
+    type: 'Full-time',
+    experience: 'Fresher',
+    deadline: '2026-10-30',
+    postedAt: '2026-09-03',
+    skills: ['Java', 'SQL', 'React', 'Data Structures'],
+    saved: false,
+    description:
+      'Join a close-knit team building sophisticated technology for the global investment management industry. Emphasis on clean architecture, code quality and strong unit testing.',
+    applicationUrl: 'https://www.arcesium.com/careers/mock/associate-software-engineer',
+  },
+  {
+    id: 'job-salesforce-cc',
+    company: 'Salesforce',
+    title: 'Cloud Support Engineer',
+    location: 'Hyderabad, Telangana',
+    type: 'Contract',
+    experience: '1-2 years',
+    deadline: '2026-11-10',
+    postedAt: '2026-09-06',
+    skills: ['Salesforce', 'SQL', 'APIs', 'Linux'],
+    saved: false,
+    description:
+      'Troubleshoot and resolve complex customer issues across the Salesforce platform. Great stepping stone into solution engineering with travel anywhere customer success org.',
+    applicationUrl: 'https://careers.salesforce.com/mock/cloud-support-engineer',
+  },
+  {
+    id: 'job-oracle-dba',
+    company: 'Oracle',
+    title: 'Database Engineer',
+    location: 'Mumbai, Maharashtra',
+    type: 'Contract',
+    experience: '3-5 years',
+    deadline: '2026-11-15',
+    postedAt: '2026-09-01',
+    skills: ['SQL', 'Oracle DB', 'PL/SQL', 'Performance Tuning'],
+    saved: false,
+    description:
+      'Maintain and optimize mission-critical OCI database fleets for enterprise customers. Requires deep SQL skills and hands-on experience with Oracle database internals.',
+    applicationUrl: 'https://www.oracle.com/careers/mock/database-engineer',
   },
 ]
 
@@ -344,7 +482,7 @@ const analyticsData: AnalyticsData = {
 
 export const mockData = {
   user,
-  jobs: salaryNeutralJobs,
+  jobs,
   applications: buildApplications(),
   applicationCounts: APPLICATION_COUNTS,
   dsaStats,
