@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '../lib/cn'
 
-export type StatTone = 'neutral' | 'primary' | 'blue' | 'green' | 'amber'
+export type StatTone = 'neutral' | 'primary' | 'blue' | 'green' | 'amber' | 'red' | 'purple'
 
 const iconToneMap: Record<StatTone, string> = {
   neutral: 'bg-neutral-100 text-neutral-600',
@@ -9,6 +9,8 @@ const iconToneMap: Record<StatTone, string> = {
   blue: 'bg-sky-50 text-sky-600',
   green: 'bg-emerald-50 text-emerald-600',
   amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-rose-50 text-rose-600',
+  purple: 'bg-violet-50 text-violet-600',
 }
 
 interface StatCardProps {

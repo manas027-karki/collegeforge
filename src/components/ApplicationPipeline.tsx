@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { ApplicationStatus } from '../types'
 import { useAppStore } from '../store/useAppStore'
 import { Card } from './Card'
@@ -6,34 +7,50 @@ import type { BadgeTone } from './StatusBadge'
 import { StatusBadge } from './StatusBadge'
 
 const STATUS_ORDER: ApplicationStatus[] = [
-  'Saved',
-  'Applied',
+  'SAVED',
+  'APPLIED',
   'OA',
-  'Interview',
-  'Selected',
-  'Rejected',
+  'INTERVIEW',
+  'SELECTED',
+  'REJECTED',
 ]
 
 const statusTone: Record<ApplicationStatus, BadgeTone> = {
-  Saved: 'neutral',
-  Applied: 'blue',
+  SAVED: 'neutral',
+  APPLIED: 'blue',
   OA: 'amber',
-  Interview: 'purple',
-  Selected: 'green',
-  Rejected: 'red',
+  INTERVIEW: 'purple',
+  SELECTED: 'green',
+  REJECTED: 'red',
 }
 
 const barClass: Record<ApplicationStatus, string> = {
-  Saved: 'bg-neutral-300',
-  Applied: 'bg-sky-500',
+  SAVED: 'bg-neutral-300',
+  APPLIED: 'bg-sky-500',
   OA: 'bg-amber-500',
-  Interview: 'bg-violet-500',
-  Selected: 'bg-emerald-500',
-  Rejected: 'bg-rose-500',
+  INTERVIEW: 'bg-violet-500',
+  SELECTED: 'bg-emerald-500',
+  REJECTED: 'bg-rose-500',
 }
 
 export function ApplicationPipeline() {
-  const counts = useAppStore((s) => s.applicationCounts)
+  const applications = useAppStore((s) => s.applications)
+
+  const counts = useMemo(() => {
+    const base: Record<ApplicationStatus, number> = {
+      SAVED: 0,
+      APPLIED: 0,
+      OA: 0,
+      INTERVIEW: 0,
+      SELECTED: 0,
+      REJECTED: 0,
+    }
+    for (const application of applications) {
+      base[application.status] += 1
+    }
+    return base
+  }, [applications])
+
   const total = STATUS_ORDER.reduce((sum, status) => sum + counts[status], 0) || 1
 
   return (

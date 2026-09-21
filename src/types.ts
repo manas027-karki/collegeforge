@@ -1,12 +1,21 @@
-export type Difficulty = 'Easy' | 'Medium' | 'Hard'
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export type ProblemStatus = 'SOLVED' | 'UNSOLVED'
+export type DSAPlatform = 'LEETCODE' | 'OTHER'
+
+export interface DSAFilters {
+  search: string
+  difficulty: Difficulty | 'ALL'
+  topic: string
+  status: ProblemStatus | 'ALL'
+}
 
 export type ApplicationStatus =
-  | 'Saved'
-  | 'Applied'
+  | 'SAVED'
+  | 'APPLIED'
   | 'OA'
-  | 'Interview'
-  | 'Selected'
-  | 'Rejected'
+  | 'INTERVIEW'
+  | 'SELECTED'
+  | 'REJECTED'
 
 export type JobType = 'Full-time' | 'Internship' | 'Contract'
 export type ExperienceLevel = 'Fresher' | '1-2 years' | '3-5 years'
@@ -28,21 +37,34 @@ export interface Job {
 
 export interface Application {
   id: string
+  jobId: string
   company: string
   role: string
   location: string
   status: ApplicationStatus
-  appliedDate: string
+  appliedAt: string
   deadline?: string
+  notes?: string
 }
+
+export type ApplicationInput = Omit<Application, 'id'>
 
 export interface DSAProblem {
   id: string
   title: string
   difficulty: Difficulty
   topic: string
-  status: 'Solved' | 'In Progress' | 'Not Started'
-  lastSolved?: string
+  platform: DSAPlatform
+  url: string
+}
+
+export type DSAProblemInput = Omit<DSAProblem, 'id'>
+
+export interface DSAProgress {
+  problemId: string
+  status: ProblemStatus
+  attempts: number
+  lastSolvedAt?: string
 }
 
 export interface DSAStats {

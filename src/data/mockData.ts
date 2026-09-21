@@ -4,10 +4,14 @@ import type {
   Application,
   ApplicationStatus,
   DashboardStats,
+  Difficulty,
   DSAProblem,
+  DSAProgress,
+  DSAPlatform,
   DSAStats,
   Deadline,
   Job,
+  ProblemStatus,
   Project,
   StudyTask,
   TaskPriority,
@@ -235,87 +239,58 @@ const jobs: Job[] = [
   },
 ]
 
-const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
-  'Saved',
-  'Applied',
-  'OA',
-  'Interview',
-  'Selected',
-  'Rejected',
+const application = (
+  id: string,
+  jobId: string,
+  company: string,
+  role: string,
+  location: string,
+  status: ApplicationStatus,
+  appliedAt: string,
+  deadline?: string,
+  notes?: string,
+): Application => ({ id, jobId, company, role, location, status, appliedAt, deadline, notes })
+
+const applications: Application[] = [
+  application('app-1', 'job-google-swe', 'Google', 'Software Engineering Intern', 'Bengaluru', 'SAVED', '2026-09-19', '2026-10-08', 'Research the Cloud team; referral possible through alumni.'),
+  application('app-2', 'job-mock-nvidia', 'Nvidia', 'CUDA Developer Intern', 'Pune', 'SAVED', '2026-09-18', '2026-10-12'),
+  application('app-3', 'job-mock-databricks', 'Databricks', 'Software Engineer Intern', 'Remote', 'SAVED', '2026-09-17', '2026-10-15', 'Tailor resume around Spark and distributed systems.'),
+  application('app-4', 'job-mock-uber', 'Uber', 'Frontend Engineer Intern', 'Gurugram', 'SAVED', '2026-09-16', '2026-10-20'),
+  application('app-5', 'job-mock-salesforce', 'Salesforce', 'Product Management Intern', 'Hyderabad', 'SAVED', '2026-09-15', '2026-10-25'),
+  application('app-6', 'job-mock-figma', 'Figma', 'Design Systems Intern', 'Remote', 'SAVED', '2026-09-14', '2026-10-30', 'Portfolio link updated; add a case study for the plugin.'),
+
+  application('app-7', 'job-msft-swe', 'Microsoft', 'Software Engineer Intern', 'Bengaluru', 'APPLIED', '2026-09-18', '2026-09-25', 'Applied via careers portal with referral from Aditi.'),
+  application('app-8', 'job-infosys-eng', 'Infosys', 'Systems Engineer Trainee', 'Pune', 'APPLIED', '2026-09-16', '2026-10-15'),
+  application('app-9', 'job-mock-coinbase', 'Coinbase', 'Backend Engineer Intern', 'Remote', 'APPLIED', '2026-09-14', '2026-10-18'),
+  application('app-10', 'job-mock-razorpay', 'Razorpay', 'Product Engineer', 'Bengaluru', 'APPLIED', '2026-09-12', '2026-10-22', 'Used the referral link from the careers fair.'),
+  application('app-11', 'job-mock-dream11', 'Dream11', 'Software Development Intern', 'Mumbai', 'APPLIED', '2026-09-11', '2026-10-12'),
+  application('app-12', 'job-mock-swiggy', 'Swiggy', 'SDE Intern', 'Bengaluru', 'APPLIED', '2026-09-09', '2026-10-05'),
+  application('app-13', 'job-mock-mongodb', 'MongoDB', 'Data Engineering Intern', 'Remote', 'APPLIED', '2026-09-06', '2026-10-10', 'Take-home assignment shared after application.'),
+
+  application('app-14', 'job-amzn-sde', 'Amazon', 'SDE Intern', 'Hyderabad', 'OA', '2026-09-10', '2026-09-28', 'OA on HackerRank — 2 coding questions, 90 minutes.'),
+  application('app-15', 'job-mock-deshaw', 'DE Shaw', 'Technology Associate Intern', 'Hyderabad', 'OA', '2026-09-08', '2026-10-01'),
+  application('app-16', 'job-mock-tower', 'Tower Research', 'Trading Systems Intern', 'Gurugram', 'OA', '2026-09-05', '2026-09-26', 'OA link valid until Sep 26 — do not miss it.'),
+  application('app-17', 'job-arcesium-sde', 'Arcesium', 'Associate Software Engineer', 'Hyderabad', 'OA', '2026-09-03', '2026-10-08'),
+  application('app-18', 'job-mock-paypal', 'PayPal', 'Software Engineer Intern', 'Chennai', 'OA', '2026-09-01', '2026-10-20'),
+
+  application('app-19', 'job-adobe-fe', 'Adobe', 'Frontend Intern', 'Noida', 'INTERVIEW', '2026-09-11', '2026-10-02', 'Round 2 scheduled — revise React patterns and accessibility.'),
+  application('app-20', 'job-netflix-de', 'Netflix', 'Data Engineering Intern', 'Remote', 'INTERVIEW', '2026-09-05', undefined, 'System design interview next week.'),
+  application('app-21', 'job-mock-nutanix', 'Nutanix', 'Full Stack Intern', 'Bengaluru', 'INTERVIEW', '2026-09-07', undefined, 'HR round done; awaiting the technical round.'),
+  application('app-22', 'job-mock-cisco', 'Cisco', 'Software Engineer Intern', 'Bengaluru', 'INTERVIEW', '2026-09-03', '2026-09-30'),
+  application('app-23', 'job-mock-zoho', 'Zoho', 'Backend Developer Intern', 'Chennai', 'INTERVIEW', '2026-08-28', '2026-10-03', 'Mock system design session this weekend.'),
+
+  application('app-24', 'job-atlassian-be', 'Atlassian', 'Software Engineer Intern', 'Bengaluru', 'SELECTED', '2026-08-20', undefined, 'Offer received — joining in November 2026.'),
+  application('app-25', 'job-stripe-swe', 'Stripe', 'Software Engineer, New Grad', 'Remote', 'SELECTED', '2026-08-15', undefined, 'Negotiating the start date.'),
+  application('app-26', 'job-mock-cred', 'Cred', 'Data Engineer', 'Bengaluru', 'SELECTED', '2026-07-22'),
+  application('app-27', 'job-mock-phonepe', 'PhonePe', 'Software Developer', 'Bengaluru', 'SELECTED', '2026-07-10', undefined, 'Offer accepted.'),
+
+  application('app-28', 'job-flipkart-sde', 'Flipkart', 'Software Development Engineer II', 'Bengaluru', 'REJECTED', '2026-08-30', undefined, 'Rejected after the online assessment.'),
+  application('app-29', 'job-mock-sprinklr', 'Sprinklr', 'SDE Intern', 'Gurugram', 'REJECTED', '2026-08-25', undefined, 'Ghosted for two weeks, then auto-rejected.'),
+  application('app-30', 'job-mock-walmart', 'Walmart Global Tech', 'SWE Intern', 'Bengaluru', 'REJECTED', '2026-08-20'),
+  application('app-31', 'job-oracle-dba', 'Oracle', 'Database Engineer', 'Mumbai', 'REJECTED', '2026-08-18', undefined, 'Manager call went poorly — prep SQL scenarios more.'),
+  application('app-32', 'job-salesforce-cc', 'Salesforce', 'Cloud Support Engineer', 'Hyderabad', 'REJECTED', '2026-08-15'),
+  application('app-33', 'job-mock-qualcomm', 'Qualcomm', 'Embedded Systems Intern', 'Noida', 'REJECTED', '2026-08-10', undefined, 'Rejected in the HR round due to availability.'),
 ]
-
-const APPLICATION_COUNTS: Record<ApplicationStatus, number> = {
-  Saved: 12,
-  Applied: 24,
-  OA: 8,
-  Interview: 5,
-  Selected: 1,
-  Rejected: 10,
-}
-
-const appCompanies = [
-  'Microsoft',
-  'Amazon',
-  'Google',
-  'Adobe',
-  'Atlassian',
-  'Infosys',
-  'Stripe',
-  'Uber',
-  'Flipkart',
-  'Arcesium',
-  'Zomato',
-  'Netflix',
-]
-
-const appRoles = [
-  'Software Engineer Intern',
-  'SDE Intern',
-  'Backend Intern',
-  'Frontend Intern',
-  'Data Engineer Intern',
-  'ML Intern',
-  'Product Engineer',
-  'Platform Intern',
-]
-
-const appLocations = [
-  'Bengaluru',
-  'Hyderabad',
-  'Gurugram',
-  'Pune',
-  'Mumbai',
-  'Remote',
-  'Noida',
-  'Chennai',
-]
-
-function buildApplications(): Application[] {
-  const apps: Application[] = []
-  let id = 1
-  const appliedOn = '2026-09-18'
-  const olderAppliedOn = '2026-09-02'
-
-  APPLICATION_STATUS_ORDER.forEach((status) => {
-    const count = APPLICATION_COUNTS[status]
-    for (let i = 0; i < count; i += 1) {
-      const company = appCompanies[id % appCompanies.length]
-      const role = appRoles[(id * 3) % appRoles.length]
-      apps.push({
-        id: `app-${id}`,
-        company,
-        role,
-        location: appLocations[(id * 5) % appLocations.length],
-        status,
-        appliedDate: status === 'Saved' ? '' : i % 3 === 0 ? olderAppliedOn : appliedOn,
-        deadline: status === 'Saved' ? '2026-10-20' : undefined,
-      })
-      id += 1
-    }
-  })
-
-  return apps
-}
 
 const dsaStats: DSAStats = {
   easy: 85,
@@ -334,36 +309,107 @@ const dsaStats: DSAStats = {
   ],
 }
 
-const dsaTopics: Array<{ topic: string; solved: number }> = [
-  { topic: 'Arrays', solved: 34 },
-  { topic: 'Strings', solved: 21 },
-  { topic: 'Linked List', solved: 15 },
-  { topic: 'Stack', solved: 10 },
-  { topic: 'Queue', solved: 6 },
-  { topic: 'Binary Tree', solved: 14 },
-  { topic: 'BST', solved: 7 },
-  { topic: 'Heap', solved: 5 },
-  { topic: 'Graph', solved: 8 },
-  { topic: 'Dynamic Programming', solved: 9 },
-  { topic: 'Greedy', solved: 4 },
-  { topic: 'Backtracking', solved: 2 },
-]
+const problem = (
+  id: string,
+  title: string,
+  difficulty: Difficulty,
+  topic: string,
+  platform: DSAPlatform,
+  url: string,
+): DSAProblem => ({ id, title, difficulty, topic, platform, url })
 
 const dsaProblems: DSAProblem[] = [
-  { id: 'dsa-1', title: 'Two Sum', difficulty: 'Easy', topic: 'Arrays', status: 'Solved', lastSolved: '2026-09-19' },
-  { id: 'dsa-2', title: 'Valid Parentheses', difficulty: 'Easy', topic: 'Stack', status: 'Solved', lastSolved: '2026-09-17' },
-  { id: 'dsa-3', title: 'Merge Two Sorted Lists', difficulty: 'Easy', topic: 'Linked List', status: 'Solved', lastSolved: '2026-09-13' },
-  { id: 'dsa-4', title: 'Best Time to Buy and Sell Stock', difficulty: 'Easy', topic: 'Arrays', status: 'Solved', lastSolved: '2026-09-10' },
-  { id: 'dsa-5', title: 'Maximum Subarray', difficulty: 'Medium', topic: 'Arrays', status: 'Solved', lastSolved: '2026-09-08' },
-  { id: 'dsa-6', title: 'Longest Substring Without Repeating Characters', difficulty: 'Medium', topic: 'Strings', status: 'Solved', lastSolved: '2026-09-02' },
-  { id: 'dsa-7', title: 'Invert Binary Tree', difficulty: 'Easy', topic: 'Binary Tree', status: 'In Progress', lastSolved: '2026-09-15' },
-  { id: 'dsa-8', title: 'Top K Frequent Elements', difficulty: 'Medium', topic: 'Heap', status: 'In Progress', lastSolved: '2026-09-12' },
-  { id: 'dsa-9', title: 'LRU Cache', difficulty: 'Medium', topic: 'Linked List', status: 'Not Started' },
-  { id: 'dsa-10', title: '3Sum', difficulty: 'Medium', topic: 'Arrays', status: 'Not Started' },
-  { id: 'dsa-11', title: 'Number of Islands', difficulty: 'Medium', topic: 'Graph', status: 'Not Started' },
-  { id: 'dsa-12', title: 'Serialize and Deserialize Binary Tree', difficulty: 'Hard', topic: 'Binary Tree', status: 'Not Started' },
-  { id: 'dsa-13', title: 'Word Ladder', difficulty: 'Hard', topic: 'Graph', status: 'Not Started' },
-  { id: 'dsa-14', title: 'Minimum Window Substring', difficulty: 'Hard', topic: 'Strings', status: 'Not Started' },
+  problem('dsa-two-sum', 'Two Sum', 'EASY', 'Arrays', 'LEETCODE', 'https://leetcode.com/problems/two-sum/'),
+  problem('dsa-buy-sell-stock', 'Best Time to Buy and Sell Stock', 'EASY', 'Arrays', 'LEETCODE', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/'),
+  problem('dsa-contains-duplicate', 'Contains Duplicate', 'EASY', 'Hashing', 'LEETCODE', 'https://leetcode.com/problems/contains-duplicate/'),
+  problem('dsa-valid-anagram', 'Valid Anagram', 'EASY', 'Strings', 'LEETCODE', 'https://leetcode.com/problems/valid-anagram/'),
+  problem('dsa-valid-parentheses', 'Valid Parentheses', 'EASY', 'Stack', 'LEETCODE', 'https://leetcode.com/problems/valid-parentheses/'),
+  problem('dsa-binary-search', 'Binary Search', 'EASY', 'Searching', 'LEETCODE', 'https://leetcode.com/problems/binary-search/'),
+  problem('dsa-reverse-linked-list', 'Reverse Linked List', 'EASY', 'Linked List', 'LEETCODE', 'https://leetcode.com/problems/reverse-linked-list/'),
+  problem('dsa-merge-two-sorted-lists', 'Merge Two Sorted Lists', 'EASY', 'Linked List', 'LEETCODE', 'https://leetcode.com/problems/merge-two-sorted-lists/'),
+  problem('dsa-invert-binary-tree', 'Invert Binary Tree', 'EASY', 'Binary Tree', 'LEETCODE', 'https://leetcode.com/problems/invert-binary-tree/'),
+  problem('dsa-queue-using-stacks', 'Implement Queue using Stacks', 'EASY', 'Queue', 'LEETCODE', 'https://leetcode.com/problems/implement-queue-using-stacks/'),
+  problem('dsa-max-subarray', 'Maximum Subarray', 'MEDIUM', 'Arrays', 'LEETCODE', 'https://leetcode.com/problems/maximum-subarray/'),
+  problem('dsa-3sum', '3Sum', 'MEDIUM', 'Arrays', 'LEETCODE', 'https://leetcode.com/problems/3sum/'),
+  problem('dsa-product-except-self', 'Product of Array Except Self', 'MEDIUM', 'Arrays', 'LEETCODE', 'https://leetcode.com/problems/product-of-array-except-self/'),
+  problem('dsa-longest-substring', 'Longest Substring Without Repeating Characters', 'MEDIUM', 'Strings', 'LEETCODE', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/'),
+  problem('dsa-min-stack', 'Min Stack', 'MEDIUM', 'Stack', 'LEETCODE', 'https://leetcode.com/problems/min-stack/'),
+  problem('dsa-level-order', 'Binary Tree Level Order Traversal', 'MEDIUM', 'Binary Tree', 'LEETCODE', 'https://leetcode.com/problems/binary-tree-level-order-traversal/'),
+  problem('dsa-validate-bst', 'Validate Binary Search Tree', 'MEDIUM', 'BST', 'LEETCODE', 'https://leetcode.com/problems/validate-binary-search-tree/'),
+  problem('dsa-kth-smallest-bst', 'Kth Smallest Element in a BST', 'MEDIUM', 'BST', 'LEETCODE', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/'),
+  problem('dsa-top-k-frequent', 'Top K Frequent Elements', 'MEDIUM', 'Heap', 'LEETCODE', 'https://leetcode.com/problems/top-k-frequent-elements/'),
+  problem('dsa-number-of-islands', 'Number of Islands', 'MEDIUM', 'Graph', 'LEETCODE', 'https://leetcode.com/problems/number-of-islands/'),
+  problem('dsa-clone-graph', 'Clone Graph', 'MEDIUM', 'Graph', 'LEETCODE', 'https://leetcode.com/problems/clone-graph/'),
+  problem('dsa-course-schedule', 'Course Schedule', 'MEDIUM', 'Graph', 'LEETCODE', 'https://leetcode.com/problems/course-schedule/'),
+  problem('dsa-house-robber', 'House Robber', 'MEDIUM', 'Dynamic Programming', 'LEETCODE', 'https://leetcode.com/problems/house-robber/'),
+  problem('dsa-coin-change', 'Coin Change', 'MEDIUM', 'Dynamic Programming', 'LEETCODE', 'https://leetcode.com/problems/coin-change/'),
+  problem('dsa-longest-increasing-subseq', 'Longest Increasing Subsequence', 'MEDIUM', 'Dynamic Programming', 'LEETCODE', 'https://leetcode.com/problems/longest-increasing-subsequence/'),
+  problem('dsa-jump-game', 'Jump Game', 'MEDIUM', 'Greedy', 'LEETCODE', 'https://leetcode.com/problems/jump-game/'),
+  problem('dsa-subsets', 'Subsets', 'MEDIUM', 'Backtracking', 'OTHER', 'https://example.com/mock-problems/subsets'),
+  problem('dsa-sort-colors', 'Sort Colors', 'MEDIUM', 'Sorting', 'OTHER', 'https://example.com/mock-problems/sort-colors'),
+  problem('dsa-search-rotated', 'Search in Rotated Sorted Array', 'MEDIUM', 'Searching', 'LEETCODE', 'https://leetcode.com/problems/search-in-rotated-sorted-array/'),
+  problem('dsa-longest-consecutive', 'Longest Consecutive Sequence', 'MEDIUM', 'Hashing', 'LEETCODE', 'https://leetcode.com/problems/longest-consecutive-sequence/'),
+  problem('dsa-sliding-window-max', 'Sliding Window Maximum', 'HARD', 'Queue', 'LEETCODE', 'https://leetcode.com/problems/sliding-window-maximum/'),
+  problem('dsa-serialize-binary-tree', 'Serialize and Deserialize Binary Tree', 'HARD', 'Binary Tree', 'LEETCODE', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/'),
+  problem('dsa-median-data-stream', 'Find Median from Data Stream', 'HARD', 'Heap', 'LEETCODE', 'https://leetcode.com/problems/find-median-from-data-stream/'),
+  problem('dsa-word-ladder', 'Word Ladder', 'HARD', 'Graph', 'LEETCODE', 'https://leetcode.com/problems/word-ladder/'),
+  problem('dsa-n-queens', 'N-Queens', 'HARD', 'Backtracking', 'LEETCODE', 'https://leetcode.com/problems/n-queens/'),
+]
+
+const progress = (
+  problemId: string,
+  status: ProblemStatus,
+  attempts: number,
+  lastSolvedAt?: string,
+): DSAProgress => ({ problemId, status, attempts, lastSolvedAt })
+
+const dsaProgress: DSAProgress[] = [
+  progress('dsa-two-sum', 'SOLVED', 1, '2026-08-01'),
+  progress('dsa-buy-sell-stock', 'SOLVED', 1, '2026-07-28'),
+  progress('dsa-contains-duplicate', 'SOLVED', 2, '2026-07-25'),
+  progress('dsa-valid-anagram', 'SOLVED', 1, '2026-08-04'),
+  progress('dsa-valid-parentheses', 'SOLVED', 1, '2026-07-20'),
+  progress('dsa-binary-search', 'SOLVED', 1, '2026-07-15'),
+  progress('dsa-reverse-linked-list', 'SOLVED', 2, '2026-07-30'),
+  progress('dsa-merge-two-sorted-lists', 'SOLVED', 1, '2026-08-06'),
+  progress('dsa-invert-binary-tree', 'SOLVED', 2, '2026-08-10'),
+  progress('dsa-queue-using-stacks', 'SOLVED', 3, '2026-08-14'),
+  progress('dsa-max-subarray', 'SOLVED', 2, '2026-08-12'),
+  progress('dsa-3sum', 'SOLVED', 4, '2026-08-25'),
+  progress('dsa-product-except-self', 'SOLVED', 2, '2026-08-18'),
+  progress('dsa-longest-substring', 'SOLVED', 2, '2026-08-22'),
+  progress('dsa-min-stack', 'SOLVED', 3, '2026-08-28'),
+  progress('dsa-level-order', 'SOLVED', 1, '2026-09-01'),
+  progress('dsa-validate-bst', 'SOLVED', 3, '2026-09-03'),
+  progress('dsa-top-k-frequent', 'SOLVED', 2, '2026-08-20'),
+  progress('dsa-number-of-islands', 'SOLVED', 3, '2026-09-05'),
+  progress('dsa-house-robber', 'SOLVED', 2, '2026-09-02'),
+  progress('dsa-coin-change', 'SOLVED', 3, '2026-09-08'),
+  progress('dsa-longest-increasing-subseq', 'SOLVED', 4, '2026-09-10'),
+  progress('dsa-subsets', 'SOLVED', 2, '2026-09-12'),
+  progress('dsa-longest-consecutive', 'SOLVED', 3, '2026-09-14'),
+  progress('dsa-sliding-window-max', 'SOLVED', 5, '2026-09-16'),
+  progress('dsa-word-ladder', 'SOLVED', 6, '2026-09-18'),
+  progress('dsa-kth-smallest-bst', 'UNSOLVED', 2),
+  progress('dsa-clone-graph', 'UNSOLVED', 3),
+  progress('dsa-course-schedule', 'UNSOLVED', 4),
+  progress('dsa-jump-game', 'UNSOLVED', 2),
+  progress('dsa-sort-colors', 'UNSOLVED', 1),
+  progress('dsa-search-rotated', 'UNSOLVED', 3),
+  progress('dsa-serialize-binary-tree', 'UNSOLVED', 2),
+  progress('dsa-median-data-stream', 'UNSOLVED', 3),
+  progress('dsa-n-queens', 'UNSOLVED', 4),
+]
+
+const dsaSolvedOverTime: Array<{ month: string; solved: number }> = [
+  { month: 'Jan', solved: 12 },
+  { month: 'Feb', solved: 24 },
+  { month: 'Mar', solved: 38 },
+  { month: 'Apr', solved: 52 },
+  { month: 'May', solved: 75 },
+  { month: 'Jun', solved: 95 },
+  { month: 'Jul', solved: 120 },
+  { month: 'Aug', solved: 135 },
 ]
 
 const projects: Project[] = [
@@ -483,11 +529,11 @@ const analyticsData: AnalyticsData = {
 export const mockData = {
   user,
   jobs,
-  applications: buildApplications(),
-  applicationCounts: APPLICATION_COUNTS,
+  applications,
   dsaStats,
-  dsaTopics,
   dsaProblems,
+  dsaProgress,
+  dsaSolvedOverTime,
   projects,
   studyTasks,
   deadlines,
