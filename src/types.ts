@@ -76,7 +76,7 @@ export interface DSAStats {
   monthly: Array<{ month: string; solved: number }>
 }
 
-export type ProjectStatus = 'Completed' | 'In Progress' | 'Planning'
+export type ProjectStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'ARCHIVED'
 
 export interface Project {
   id: string
@@ -84,9 +84,20 @@ export interface Project {
   description: string
   technologies: string[]
   status: ProjectStatus
-  lastUpdated: string
   githubUrl?: string
   liveUrl?: string
+  startDate?: string
+  endDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type ProjectInput = Omit<Project, 'id' | 'createdAt' | 'updatedAt'>
+
+export interface ProjectFilters {
+  search: string
+  status: ProjectStatus | 'ALL'
+  technology: string
 }
 
 export type TaskPriority = 'High' | 'Medium' | 'Low'

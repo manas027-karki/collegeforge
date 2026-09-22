@@ -11,6 +11,8 @@ import type {
   DSAProblemInput,
   DSAProgress,
   Project,
+  ProjectFilters,
+  ProjectInput,
   StudyTask,
 } from '../types'
 
@@ -24,6 +26,7 @@ interface AppState {
   dsaProblems: DSAProblem[]
   dsaProgress: DSAProgress[]
   dsaFilters: DSAFilters
+  projectFilters: ProjectFilters
 
   openSidebar: () => void
   closeSidebar: () => void
@@ -34,6 +37,9 @@ interface AppState {
   updateApplicationStatus: (id: string, status: ApplicationStatus) => void
   toggleJobSaved: (jobId: string) => void
   addProject: (project: Project) => void
+  updateProject: (id: string, updates: ProjectInput) => void
+  deleteProject: (id: string) => void
+  setProjectFilters: (filters: Partial<ProjectFilters>) => void
   addTask: (task: StudyTask) => void
   toggleTask: (id: string) => void
   deleteTask: (id: string) => void
@@ -56,6 +62,7 @@ export const useAppStore = create<AppState>((set) => ({
   dsaProblems: mockData.dsaProblems,
   dsaProgress: mockData.dsaProgress,
   dsaFilters: { search: '', difficulty: 'ALL', topic: 'ALL', status: 'ALL' },
+  projectFilters: { search: '', status: 'ALL', technology: 'ALL' },
 
   openSidebar: () => set({ sidebarOpen: true }),
   closeSidebar: () => set({ sidebarOpen: false }),
@@ -98,6 +105,23 @@ export const useAppStore = create<AppState>((set) => ({
 
   addProject: (project) =>
     set((state) => ({ projects: [project, ...state.projects] })),
+
+  updateProject: (id, updates) =>
+    set((state) => ({
+      projects: state.projects.map((project) =>
+        project.id === id
+          ? { ...project, ...updates, updatedAt: TODAY_ISO }
+          : project,
+      ),
+    })),
+
+  deleteProject: (id) =>
+    set((state) => ({
+      projects: state.projects.filter((project) => project.id !== id),
+    })),
+
+  setProjectFilters: (filters) =>
+    set((state) => ({ projectFilters: { ...state.projectFilters, ...filters } })),
 
   addTask: (task) =>
     set((state) => ({ tasks: [task, ...state.tasks] })),
