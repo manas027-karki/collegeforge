@@ -127,6 +127,38 @@ export interface StudyTaskFilters {
   sort: StudyTaskSort
 }
 
+export type ResumeStatus = 'CURRENT' | 'ARCHIVED'
+export type ResumeFileType = 'PDF' | 'DOCX'
+export type ResumeSort = 'NEWEST' | 'OLDEST' | 'VERSION'
+
+export interface Resume {
+  id: string
+  fileName: string
+  fileUrl?: string
+  targetRole: string
+  version: number
+  status: ResumeStatus
+  fileType: ResumeFileType
+  fileSize?: number
+  uploadedAt: string
+  updatedAt: string
+}
+
+export interface ResumeInput {
+  fileName: string
+  targetRole: string
+  fileType: ResumeFileType
+  fileSize?: number
+  fileUrl?: string
+}
+
+export interface ResumeFilters {
+  search: string
+  status: ResumeStatus | 'ALL'
+  fileType: ResumeFileType | 'ALL'
+  sort: ResumeSort
+}
+
 export interface Deadline {
   id: string
   company: string

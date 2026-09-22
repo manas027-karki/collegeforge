@@ -13,6 +13,9 @@ import type {
   Project,
   ProjectFilters,
   ProjectInput,
+  Resume,
+  ResumeFilters,
+  ResumeInput,
   StudyTask,
   StudyTaskFilters,
   StudyTaskInput,
@@ -30,6 +33,8 @@ interface AppState {
   dsaProgress: DSAProgress[]
   dsaFilters: DSAFilters
   projectFilters: ProjectFilters
+  resumes: Resume[]
+  resumeFilters: ResumeFilters
 
   openSidebar: () => void
   closeSidebar: () => void
@@ -43,6 +48,12 @@ interface AppState {
   updateProject: (id: string, updates: ProjectInput) => void
   deleteProject: (id: string) => void
   setProjectFilters: (filters: Partial<ProjectFilters>) => void
+  addResume: (input: ResumeInput) => void
+  updateResume: (id: string, updates: Partial<Resume>) => void
+  deleteResume: (id: string) => void
+  archiveResume: (id: string) => void
+  setCurrentResume: (id: string) => void
+  setResumeFilters: (filters: Partial<ResumeFilters>) => void
   addStudyTask: (task: StudyTask) => void
   updateStudyTask: (id: string, updates: StudyTaskInput) => void
   deleteStudyTask: (id: string) => void
@@ -75,6 +86,8 @@ export const useAppStore = create<AppState>((set) => ({
   dsaProgress: mockData.dsaProgress,
   dsaFilters: { search: '', difficulty: 'ALL', topic: 'ALL', status: 'ALL' },
   projectFilters: { search: '', status: 'ALL', technology: 'ALL' },
+  resumes: mockData.resumes,
+  resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
 
   openSidebar: () => set({ sidebarOpen: true }),
   closeSidebar: () => set({ sidebarOpen: false }),
@@ -134,6 +147,68 @@ export const useAppStore = create<AppState>((set) => ({
 
   setProjectFilters: (filters) =>
     set((state) => ({ projectFilters: { ...state.projectFilters, ...filters } })),
+
+  addResume: (input) =>
+    set((state) => {
+      const nextVersion =
+        state.resumes.reduce((max, resume) => Math.max(max, resume.version), 0) + 1
+      return {
+        resumes: [
+          {
+            id: `resume-${Date.now()}`,
+            ...input,
+            version: nextVersion,
+            status: 'CURRENT' as const,
+            uploadedAt: TODAY_ISO,
+            updatedAt: TODAY_ISO,
+          },
+          ...state.resumes.map((resume) =>
+            resume.status === 'CURRENT'
+              ? { ...resume, status: 'ARCHIVED' as const }
+              : resume,
+          ),
+        ],
+      }
+    }),
+
+  updateResume: (id, updates) =>
+    set((state) => ({
+      resumes: state.resumes.map((resume) =>
+        resume.id === id ? { ...resume, ...updates, updatedAt: TODAY_ISO } : resume,
+      ),
+    })),
+
+  deleteResume: (id) =>
+    set((state) => {
+      const target = state.resumes.find((resume) => resume.id === id)
+      if (target?.fileUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(target.fileUrl)
+      }
+      return {
+        resumes: state.resumes.filter((resume) => resume.id !== id),
+      }
+    }),
+
+  archiveResume: (id) =>
+    set((state) => ({
+      resumes: state.resumes.map((resume) =>
+        resume.id === id ? { ...resume, status: 'ARCHIVED' as const, updatedAt: TODAY_ISO } : resume,
+      ),
+    })),
+
+  setCurrentResume: (id) =>
+    set((state) => ({
+      resumes: state.resumes.map((resume) =>
+        resume.id === id
+          ? { ...resume, status: 'CURRENT' as const, updatedAt: TODAY_ISO }
+          : resume.status === 'CURRENT'
+            ? { ...resume, status: 'ARCHIVED' as const }
+            : resume,
+      ),
+    })),
+
+  setResumeFilters: (filters) =>
+    set((state) => ({ resumeFilters: { ...state.resumeFilters, ...filters } })),
 
   addStudyTask: (task) =>
     set((state) => ({ tasks: [task, ...state.tasks] })),
