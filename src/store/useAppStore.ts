@@ -14,6 +14,8 @@ import type {
   ProjectFilters,
   ProjectInput,
   StudyTask,
+  StudyTaskFilters,
+  StudyTaskInput,
 } from '../types'
 
 interface AppState {
@@ -21,6 +23,7 @@ interface AppState {
   applications: Application[]
   projects: Project[]
   tasks: StudyTask[]
+  studyTaskFilters: StudyTaskFilters
   dashboardStats: DashboardStats
   jobsSaved: string[]
   dsaProblems: DSAProblem[]
@@ -40,9 +43,11 @@ interface AppState {
   updateProject: (id: string, updates: ProjectInput) => void
   deleteProject: (id: string) => void
   setProjectFilters: (filters: Partial<ProjectFilters>) => void
-  addTask: (task: StudyTask) => void
-  toggleTask: (id: string) => void
-  deleteTask: (id: string) => void
+  addStudyTask: (task: StudyTask) => void
+  updateStudyTask: (id: string, updates: StudyTaskInput) => void
+  deleteStudyTask: (id: string) => void
+  toggleStudyTask: (id: string) => void
+  setStudyTaskFilters: (filters: Partial<StudyTaskFilters>) => void
   addDSAProblem: (input: DSAProblemInput) => void
   updateDSAProblem: (id: string, updates: DSAProblemInput) => void
   deleteDSAProblem: (id: string) => void
@@ -57,6 +62,13 @@ export const useAppStore = create<AppState>((set) => ({
   applications: mockData.applications,
   projects: mockData.projects,
   tasks: mockData.studyTasks,
+  studyTaskFilters: {
+    search: '',
+    status: 'ALL',
+    priority: 'ALL',
+    category: 'ALL',
+    sort: 'DUE_DATE',
+  },
   dashboardStats: mockData.dashboardStats,
   jobsSaved: mockData.jobs.filter((job) => job.saved).map((job) => job.id),
   dsaProblems: mockData.dsaProblems,
@@ -123,24 +135,35 @@ export const useAppStore = create<AppState>((set) => ({
   setProjectFilters: (filters) =>
     set((state) => ({ projectFilters: { ...state.projectFilters, ...filters } })),
 
-  addTask: (task) =>
+  addStudyTask: (task) =>
     set((state) => ({ tasks: [task, ...state.tasks] })),
 
-  toggleTask: (id) =>
+  updateStudyTask: (id, updates) =>
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === id ? { ...task, ...updates } : task,
+      ),
+    })),
+
+  deleteStudyTask: (id) =>
+    set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),
+
+  toggleStudyTask: (id) =>
     set((state) => ({
       tasks: state.tasks.map((task) =>
         task.id === id
           ? {
               ...task,
-              completed: !task.completed,
-              section: !task.completed ? 'completed' : 'upcoming',
+              status: task.status === 'COMPLETED' ? 'TODO' : 'COMPLETED',
             }
           : task,
       ),
     })),
 
-  deleteTask: (id) =>
-    set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),
+  setStudyTaskFilters: (filters) =>
+    set((state) => ({
+      studyTaskFilters: { ...state.studyTaskFilters, ...filters },
+    })),
 
   addDSAProblem: (input) =>
     set((state) => {

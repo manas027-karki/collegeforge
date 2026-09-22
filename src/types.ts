@@ -100,16 +100,31 @@ export interface ProjectFilters {
   technology: string
 }
 
-export type TaskPriority = 'High' | 'Medium' | 'Low'
-export type TaskSection = 'today' | 'upcoming' | 'completed'
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH'
+export type TaskStatus = 'TODO' | 'COMPLETED'
 
 export interface StudyTask {
   id: string
   title: string
+  description?: string
   priority: TaskPriority
+  status: TaskStatus
   dueDate: string
-  completed: boolean
-  section: TaskSection
+  category: string
+  estimatedMinutes?: number
+  createdAt: string
+}
+
+export type StudyTaskInput = Omit<StudyTask, 'id' | 'createdAt'>
+
+export type StudyTaskSort = 'DUE_DATE' | 'PRIORITY' | 'CREATED_DATE'
+
+export interface StudyTaskFilters {
+  search: string
+  status: TaskStatus | 'ALL'
+  priority: TaskPriority | 'ALL'
+  category: string
+  sort: StudyTaskSort
 }
 
 export interface Deadline {
