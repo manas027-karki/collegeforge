@@ -9,7 +9,9 @@ export function Topbar() {
   const { pathname } = useLocation()
   const openSidebar = useAppStore((s) => s.openSidebar)
   const profile = useAppStore((s) => s.profile)
+  const currentUser = useAppStore((s) => s.currentUser)
   const title = getPageTitle(pathname)
+  const displayName = currentUser?.fullName ?? profile.fullName
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-neutral-200 bg-white/90 px-4 backdrop-blur sm:px-6 lg:px-8">
@@ -30,7 +32,7 @@ export function Topbar() {
         <NotificationsMenu />
         <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
         <span className="lg:hidden">
-          <Avatar label={profile.fullName} />
+          <Avatar label={displayName} />
         </span>
       </div>
     </header>

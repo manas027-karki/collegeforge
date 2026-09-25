@@ -24,7 +24,10 @@ export function Sidebar() {
   const navigate = useNavigate()
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const profile = useAppStore((s) => s.profile)
+  const currentUser = useAppStore((s) => s.currentUser)
   const closeSidebar = useAppStore((s) => s.closeSidebar)
+  const logout = useAppStore((s) => s.logout)
+  const displayName = currentUser?.fullName ?? profile.fullName
 
   useEffect(() => {
     if (sidebarOpen) {
@@ -37,6 +40,7 @@ export function Sidebar() {
   }, [sidebarOpen])
 
   const handleLogout = () => {
+    logout()
     closeSidebar()
     navigate('/login')
   }
@@ -123,9 +127,9 @@ export function Sidebar() {
 
         <div className="shrink-0 border-t border-neutral-100 p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <Avatar label={profile.fullName} className="h-9 w-9 text-sm" />
+            <Avatar label={displayName} className="h-9 w-9 text-sm" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-neutral-900">{profile.fullName}</p>
+              <p className="truncate text-sm font-medium text-neutral-900">{displayName}</p>
               <p className="truncate text-xs text-neutral-500">{mockData.user.role}</p>
             </div>
             <button
@@ -133,9 +137,10 @@ export function Sidebar() {
               onClick={handleLogout}
               aria-label="Log out"
               title="Log out"
-              className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              className="inline-flex items-center gap-1.5 rounded-lg p-2 text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
             >
               <LogOut aria-hidden="true" className="h-4 w-4" />
+              <span className="hidden text-xs font-medium xl:inline">Logout</span>
             </button>
           </div>
         </div>

@@ -1,10 +1,12 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { mockData } from '../data/mockData'
 import { TODAY_ISO } from '../lib/dates'
 import type {
   Application,
   ApplicationInput,
   ApplicationStatus,
+  AuthState,
   DashboardStats,
   DensityPreference,
   DSAFilters,
@@ -25,7 +27,7 @@ import type {
   UserProfile,
 } from '../types'
 
-interface AppState {
+interface AppState extends AuthState {
   sidebarOpen: boolean
   profile: UserProfile
   notificationSettings: NotificationSettings
@@ -48,6 +50,9 @@ interface AppState {
   openSidebar: () => void
   closeSidebar: () => void
   toggleSidebar: () => void
+  loginMockUser: (email?: string) => void
+  logout: () => void
+  registerMockUser: (user?: Pick<UserProfile, 'fullName' | 'email'>) => void
   updateProfile: (updates: Partial<UserProfile>) => void
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => void
   setTheme: (theme: ThemePreference) => void
@@ -83,8 +88,12 @@ interface AppState {
   setDSAFilters: (filters: Partial<DSAFilters>) => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
   sidebarOpen: false,
+  isAuthenticated: false,
+  currentUser: null,
   profile: mockData.userProfile,
   notificationSettings: {
     applicationDeadlines: true,
@@ -123,8 +132,46 @@ export const useAppStore = create<AppState>((set) => ({
   closeSidebar: () => set({ sidebarOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
+  loginMockUser: (email = mockData.mockAuthUser.email) =>
+    set((state) => {
+      const currentUser = {
+        ...mockData.mockAuthUser,
+        email: email.trim() || mockData.mockAuthUser.email,
+      }
+      return {
+        isAuthenticated: true,
+        currentUser,
+        profile: {
+          ...state.profile,
+          fullName: currentUser.fullName,
+          email: currentUser.email,
+        },
+      }
+    }),
+
+  logout: () => set({ isAuthenticated: false, currentUser: null }),
+
+  registerMockUser: (user = mockData.mockAuthUser) =>
+    set((state) => ({
+      isAuthenticated: true,
+      currentUser: { ...user },
+      profile: {
+        ...state.profile,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    })),
+
   updateProfile: (updates) =>
-    set((state) => ({ profile: { ...state.profile, ...updates } })),
+    set((state) => {
+      const profile = { ...state.profile, ...updates }
+      return {
+        profile,
+        ...(state.currentUser
+          ? { currentUser: { ...state.currentUser, ...updates } }
+          : {}),
+      }
+    }),
 
   updateNotificationSettings: (updates) =>
     set((state) => ({
@@ -355,4 +402,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   setDSAFilters: (filters) =>
     set((state) => ({ dsaFilters: { ...state.dsaFilters, ...filters } })),
-}))
+    }),
+    {
+      name: 'careerforge-auth',
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        currentUser: state.currentUser,
+        profile: state.profile,
+      }),
+    },
+  ),
+)

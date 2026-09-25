@@ -12,6 +12,11 @@ export interface UserProfile {
   bio?: string
 }
 
+export interface AuthState {
+  isAuthenticated: boolean
+  currentUser: UserProfile | null
+}
+
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type DensityPreference = 'comfortable' | 'compact'
 

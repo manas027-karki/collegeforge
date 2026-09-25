@@ -9,11 +9,12 @@ import { DeadlineList } from '../components/DeadlineList'
 import { DsaProgressCard } from '../components/DsaProgressCard'
 import { RecentActivity } from '../components/RecentActivity'
 import { StatCard } from '../components/StatCard'
-import { mockData } from '../data/mockData'
 import { useAppStore } from '../store/useAppStore'
 
 export function Dashboard() {
   const stats = useAppStore((s) => s.dashboardStats)
+  const profile = useAppStore((s) => s.profile)
+  const firstName = profile.fullName.trim().split(/\s+/)[0] || profile.fullName
 
   return (
     <div className="space-y-6">
@@ -22,7 +23,7 @@ export function Dashboard() {
           id="dashboard-greeting"
           className="text-2xl font-semibold tracking-tight text-neutral-900"
         >
-          Good evening, {mockData.user.name} 👋
+          Good evening, {firstName} 👋
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
           Here&apos;s your career progress today.
