@@ -6,10 +6,12 @@ import type {
   ApplicationInput,
   ApplicationStatus,
   DashboardStats,
+  DensityPreference,
   DSAFilters,
   DSAProblem,
   DSAProblemInput,
   DSAProgress,
+  NotificationSettings,
   Project,
   ProjectFilters,
   ProjectInput,
@@ -19,10 +21,17 @@ import type {
   StudyTask,
   StudyTaskFilters,
   StudyTaskInput,
+  ThemePreference,
+  UserProfile,
 } from '../types'
 
 interface AppState {
   sidebarOpen: boolean
+  profile: UserProfile
+  notificationSettings: NotificationSettings
+  theme: ThemePreference
+  density: DensityPreference
+  reduceAnimations: boolean
   applications: Application[]
   projects: Project[]
   tasks: StudyTask[]
@@ -39,6 +48,12 @@ interface AppState {
   openSidebar: () => void
   closeSidebar: () => void
   toggleSidebar: () => void
+  updateProfile: (updates: Partial<UserProfile>) => void
+  updateNotificationSettings: (updates: Partial<NotificationSettings>) => void
+  setTheme: (theme: ThemePreference) => void
+  setDensity: (density: DensityPreference) => void
+  setReduceAnimations: (reduceAnimations: boolean) => void
+  resetDemoData: () => void
   addApplication: (application: Application) => void
   updateApplication: (id: string, updates: ApplicationInput) => void
   deleteApplication: (id: string) => void
@@ -70,6 +85,21 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   sidebarOpen: false,
+  profile: mockData.userProfile,
+  notificationSettings: {
+    applicationDeadlines: true,
+    interviewReminders: true,
+    applicationUpdates: true,
+    studyReminders: true,
+    dailyStudySummary: true,
+    weeklyProgressSummary: true,
+    jobRecommendations: true,
+    resumeReminders: true,
+    dsaReminders: true,
+  },
+  theme: 'light',
+  density: 'comfortable',
+  reduceAnimations: false,
   applications: mockData.applications,
   projects: mockData.projects,
   tasks: mockData.studyTasks,
@@ -92,6 +122,40 @@ export const useAppStore = create<AppState>((set) => ({
   openSidebar: () => set({ sidebarOpen: true }),
   closeSidebar: () => set({ sidebarOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  updateProfile: (updates) =>
+    set((state) => ({ profile: { ...state.profile, ...updates } })),
+
+  updateNotificationSettings: (updates) =>
+    set((state) => ({
+      notificationSettings: { ...state.notificationSettings, ...updates },
+    })),
+
+  setTheme: (theme) => set({ theme }),
+  setDensity: (density) => set({ density }),
+  setReduceAnimations: (reduceAnimations) => set({ reduceAnimations }),
+
+  resetDemoData: () =>
+    set({
+      applications: [...mockData.applications],
+      projects: [...mockData.projects],
+      tasks: [...mockData.studyTasks],
+      studyTaskFilters: {
+        search: '',
+        status: 'ALL',
+        priority: 'ALL',
+        category: '',
+        sort: 'DUE_DATE',
+      },
+      dashboardStats: mockData.dashboardStats,
+      jobsSaved: mockData.jobs.filter((job) => job.saved).map((job) => job.id),
+      dsaProblems: [...mockData.dsaProblems],
+      dsaProgress: [...mockData.dsaProgress],
+      dsaFilters: { search: '', difficulty: 'ALL', topic: '', status: 'ALL' },
+      projectFilters: { search: '', status: 'ALL', technology: '' },
+      resumes: [...mockData.resumes],
+      resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
+    }),
 
   addApplication: (application) =>
     set((state) => ({

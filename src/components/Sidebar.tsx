@@ -2,6 +2,7 @@ import { Hammer, LogOut } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { footerNavItems, navItems } from '../config/navigation'
+import { mockData } from '../data/mockData'
 import { cn } from '../lib/cn'
 import { useAppStore } from '../store/useAppStore'
 import { Avatar } from './Avatar'
@@ -22,6 +23,7 @@ function Brand() {
 export function Sidebar() {
   const navigate = useNavigate()
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const profile = useAppStore((s) => s.profile)
   const closeSidebar = useAppStore((s) => s.closeSidebar)
 
   useEffect(() => {
@@ -121,10 +123,10 @@ export function Sidebar() {
 
         <div className="shrink-0 border-t border-neutral-100 p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <Avatar label="Manas Kumar" className="h-9 w-9 text-sm" />
+            <Avatar label={profile.fullName} className="h-9 w-9 text-sm" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-neutral-900">Manas Kumar</p>
-              <p className="truncate text-xs text-neutral-500">Student · CSE</p>
+              <p className="truncate text-sm font-medium text-neutral-900">{profile.fullName}</p>
+              <p className="truncate text-xs text-neutral-500">{mockData.user.role}</p>
             </div>
             <button
               type="button"

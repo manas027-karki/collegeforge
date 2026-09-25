@@ -8,6 +8,7 @@ import { NotificationsMenu } from './NotificationsMenu'
 export function Topbar() {
   const { pathname } = useLocation()
   const openSidebar = useAppStore((s) => s.openSidebar)
+  const profile = useAppStore((s) => s.profile)
   const title = getPageTitle(pathname)
 
   return (
@@ -29,7 +30,7 @@ export function Topbar() {
         <NotificationsMenu />
         <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
         <span className="lg:hidden">
-          <Avatar label="Manas Kumar" />
+          <Avatar label={profile.fullName} />
         </span>
       </div>
     </header>

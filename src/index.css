@@ -44,6 +44,15 @@
     border-radius: 4px;
   }
 
+  html[data-reduce-animations='true'] *,
+  html[data-reduce-animations='true'] *::before,
+  html[data-reduce-animations='true'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
   ::selection {
     background-color: var(--color-primary-100);
   }

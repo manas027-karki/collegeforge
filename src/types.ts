@@ -2,6 +2,31 @@ export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
 export type ProblemStatus = 'SOLVED' | 'UNSOLVED'
 export type DSAPlatform = 'LEETCODE' | 'OTHER'
 
+export interface UserProfile {
+  fullName: string
+  email: string
+  phone?: string
+  college?: string
+  degree?: string
+  graduationYear?: string
+  bio?: string
+}
+
+export type ThemePreference = 'light' | 'dark' | 'system'
+export type DensityPreference = 'comfortable' | 'compact'
+
+export interface NotificationSettings {
+  applicationDeadlines: boolean
+  interviewReminders: boolean
+  applicationUpdates: boolean
+  studyReminders: boolean
+  dailyStudySummary: boolean
+  weeklyProgressSummary: boolean
+  jobRecommendations: boolean
+  resumeReminders: boolean
+  dsaReminders: boolean
+}
+
 export interface DSAFilters {
   search: string
   difficulty: Difficulty | 'ALL'

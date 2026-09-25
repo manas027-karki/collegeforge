@@ -17,14 +17,25 @@ import type {
   StudyTask,
   TaskPriority,
   TaskStatus,
+  UserProfile,
 } from '../types'
 
 export const user = {
   name: 'Manas',
-  fullName: 'Manas Kumar',
+  fullName: 'Manas Karki',
   role: 'Student · CSE',
   initials: 'MK',
   email: 'manas@example.com',
+}
+
+export const userProfile: UserProfile = {
+  fullName: user.fullName,
+  email: user.email,
+  phone: '',
+  college: 'Maharaja Surajmal Institute of Technology',
+  degree: 'B.Tech Information Technology',
+  graduationYear: '2028',
+  bio: '',
 }
 
 const jobs: Job[] = [
@@ -785,6 +796,7 @@ const resumes: Resume[] = [
 
 export const mockData = {
   user,
+  userProfile,
   jobs,
   applications,
   dsaStats,
