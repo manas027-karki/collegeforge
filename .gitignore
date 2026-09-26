@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Prisma generated client
+backend/src/generated
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
