@@ -18,6 +18,13 @@ enum JobType {
   FULL_TIME
 }
 
+/// Seniority band a posting is aimed at. The job board filters on this.
+enum ExperienceLevel {
+  FRESHER
+  ONE_TO_TWO_YEARS
+  THREE_TO_FIVE_YEARS
+}
+
 enum ApplicationStatus {
   SAVED
   APPLIED
@@ -154,6 +161,7 @@ model Job {
   title          String    @db.VarChar(160)
   location       String    @db.VarChar(160)
   type           JobType
+  experience     ExperienceLevel @default(FRESHER)
   skills         String[]  @default([])
   description    String    @db.Text
   applicationUrl String?   @map("application_url") @db.VarChar(2048)
@@ -169,6 +177,7 @@ model Job {
 
   @@index([companyId])
   @@index([type])
+  @@index([experience])
   @@index([location])
   @@index([deadline])
   @@index([postedAt])

@@ -12,9 +12,23 @@ export interface UserProfile {
   bio?: string
 }
 
+/**
+ * Lifecycle of the session check.
+ *
+ * The app cannot decide whether a visitor is signed in from local storage
+ * alone, so the cookie is verified against `GET /api/auth/me` on boot. While
+ * that call is in flight the route guards render a loader instead of
+ * redirecting, which avoids bouncing a signed-in user to the login screen on
+ * every refresh.
+ */
+export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated'
+
 export interface AuthState {
   isAuthenticated: boolean
   currentUser: UserProfile | null
+  authStatus: AuthStatus
+  /** Last authentication failure, shown by the login and register forms. */
+  authError: string | null
 }
 
 export type ThemePreference = 'light' | 'dark' | 'system'

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { mockData } from '../data/mockData'
+import { ApiRequestError, authApi, setUnauthorizedHandler, toUserProfile } from '../lib/api'
 import { TODAY_ISO } from '../lib/dates'
 import type {
   Application,
@@ -46,13 +47,23 @@ interface AppState extends AuthState {
   projectFilters: ProjectFilters
   resumes: Resume[]
   resumeFilters: ResumeFilters
+  /** True while a login or register request is in flight. */
+  authPending: boolean
 
   openSidebar: () => void
   closeSidebar: () => void
   toggleSidebar: () => void
-  loginMockUser: (email?: string) => void
-  logout: () => void
-  registerMockUser: (user?: Pick<UserProfile, 'fullName' | 'email'>) => void
+  /**
+   * Verifies the session cookie against `GET /api/auth/me`.
+   *
+   * Runs once on boot. The result is what the route guards trust, because a
+   * value in local storage cannot prove that a session still exists.
+   */
+  bootstrapSession: () => Promise<void>
+  login: (credentials: { email: string; password: string; rememberMe?: boolean }) => Promise<void>
+  register: (input: { name: string; email: string; password: string }) => Promise<void>
+  logout: () => Promise<void>
+  clearAuthError: () => void
   updateProfile: (updates: Partial<UserProfile>) => void
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => void
   setTheme: (theme: ThemePreference) => void
@@ -88,12 +99,22 @@ interface AppState extends AuthState {
   setDSAFilters: (filters: Partial<DSAFilters>) => void
 }
 
+/**
+ * Ticket counter for the authentication request race described in
+ * `bootstrapSession`. Module scoped on purpose: it is request bookkeeping,
+ * not application state, and it must never be persisted.
+ */
+let authRequestTicket = 0
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
   sidebarOpen: false,
   isAuthenticated: false,
   currentUser: null,
+  authStatus: 'idle',
+  authError: null,
+  authPending: false,
   profile: mockData.userProfile,
   notificationSettings: {
     applicationDeadlines: true,
@@ -132,35 +153,137 @@ export const useAppStore = create<AppState>()(
   closeSidebar: () => set({ sidebarOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-  loginMockUser: (email = mockData.mockAuthUser.email) =>
-    set((state) => {
-      const currentUser = {
-        ...mockData.mockAuthUser,
-        email: email.trim() || mockData.mockAuthUser.email,
-      }
-      return {
+  /**
+   * Monotonic counter used to discard stale auth responses.
+   *
+   * Boot verification and an explicit login can overlap — a visitor may hit
+   * "Sign in" while the initial `GET /api/auth/me` is still in flight. Each
+   * request takes a ticket and only the newest one is allowed to write state,
+   * so a slow boot check can never overwrite a fresh login.
+   */
+  bootstrapSession: async () => {
+    const ticket = ++authRequestTicket
+    set({ authStatus: 'loading', authError: null })
+
+    try {
+      const { user } = await authApi.me()
+      if (ticket !== authRequestTicket) return
+
+      const profile = toUserProfile(user)
+      set((state) => ({
         isAuthenticated: true,
-        currentUser,
-        profile: {
-          ...state.profile,
-          fullName: currentUser.fullName,
-          email: currentUser.email,
-        },
+        currentUser: profile,
+        authStatus: 'authenticated',
+        authError: null,
+        // Only identity is synced here. The rest of the profile is edited in
+        // Settings and is not yet backed by an endpoint, so it is left alone.
+        profile: { ...state.profile, fullName: profile.fullName, email: profile.email },
+      }))
+    } catch {
+      if (ticket !== authRequestTicket) return
+
+      // A missing cookie, an expired session, and an unreachable API all mean
+      // the same thing to the app: nobody is signed in.
+      set({
+        isAuthenticated: false,
+        currentUser: null,
+        authStatus: 'unauthenticated',
+      })
+    }
+  },
+
+  login: async (credentials) => {
+    const ticket = ++authRequestTicket
+    set({ authPending: true, authError: null })
+
+    try {
+      const { user } = await authApi.login(credentials)
+      if (ticket !== authRequestTicket) return
+
+      const profile = toUserProfile(user)
+      set({
+        isAuthenticated: true,
+        currentUser: profile,
+        authStatus: 'authenticated',
+        authError: null,
+        // Signing in as a different account must not keep the previous
+        // account's profile fields.
+        profile,
+      })
+    } catch (error) {
+      if (ticket !== authRequestTicket) return
+
+      set({
+        isAuthenticated: false,
+        currentUser: null,
+        authStatus: 'unauthenticated',
+        authError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to sign in right now. Please try again.',
+      })
+      throw error
+    } finally {
+      if (ticket === authRequestTicket) {
+        set({ authPending: false })
       }
-    }),
+    }
+  },
 
-  logout: () => set({ isAuthenticated: false, currentUser: null }),
+  register: async (input) => {
+    const ticket = ++authRequestTicket
+    set({ authPending: true, authError: null })
 
-  registerMockUser: (user = mockData.mockAuthUser) =>
-    set((state) => ({
-      isAuthenticated: true,
-      currentUser: { ...user },
-      profile: {
-        ...state.profile,
-        fullName: user.fullName,
-        email: user.email,
-      },
-    })),
+    try {
+      const { user } = await authApi.register(input)
+      if (ticket !== authRequestTicket) return
+
+      const profile = toUserProfile(user)
+      set({
+        isAuthenticated: true,
+        currentUser: profile,
+        authStatus: 'authenticated',
+        authError: null,
+        profile,
+      })
+    } catch (error) {
+      if (ticket !== authRequestTicket) return
+
+      set({
+        isAuthenticated: false,
+        currentUser: null,
+        authStatus: 'unauthenticated',
+        authError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to create your account right now. Please try again.',
+      })
+      throw error
+    } finally {
+      if (ticket === authRequestTicket) {
+        set({ authPending: false })
+      }
+    }
+  },
+
+  logout: async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // The local session is cleared either way: the cookie may already be
+      // gone, and the visitor asked to be signed out regardless.
+    }
+
+    ++authRequestTicket
+    set({
+      isAuthenticated: false,
+      currentUser: null,
+      authStatus: 'unauthenticated',
+      authError: null,
+    })
+  },
+
+  clearAuthError: () => set({ authError: null }),
 
   updateProfile: (updates) =>
     set((state) => {
@@ -406,6 +529,9 @@ export const useAppStore = create<AppState>()(
     {
       name: 'careerforge-auth',
       partialize: (state) => ({
+        // The session itself lives in an httpOnly cookie and is re-verified
+        // against the API on every boot, so these two are only a cached
+        // snapshot. The bootstrap check always overwrites them.
         isAuthenticated: state.isAuthenticated,
         currentUser: state.currentUser,
         profile: state.profile,
@@ -413,3 +539,17 @@ export const useAppStore = create<AppState>()(
     },
   ),
 )
+
+/**
+ * Any 401 from the API means the session is gone, whatever the request was.
+ *
+ * Dropping the local session here keeps the UI from showing a signed-in shell
+ * over a dead cookie. The next guard evaluation redirects to the login page.
+ */
+setUnauthorizedHandler(() => {
+  useAppStore.setState({
+    isAuthenticated: false,
+    currentUser: null,
+    authStatus: 'unauthenticated',
+  })
+})

@@ -28,6 +28,14 @@ const passwordSchema = z
     message: `Password must contain at most ${BCRYPT_MAX_PASSWORD_BYTES} bytes.`,
   });
 
+/**
+ * Optional flag asking for a longer-lived session.
+ *
+ * The client requests it; the server decides how long "longer" actually is,
+ * via `SESSION_DURATION_DAYS_REMEMBERED`.
+ */
+const rememberMeSchema = z.boolean().optional().default(false);
+
 export const registerSchema = z
   .object({
     name: z
@@ -39,6 +47,7 @@ export const registerSchema = z
       .max(120, 'Name must contain at most 120 characters.'),
     email: emailSchema,
     password: passwordSchema,
+    rememberMe: rememberMeSchema,
   })
   .strict();
 
@@ -46,6 +55,7 @@ export const loginSchema = z
   .object({
     email: emailSchema,
     password: z.string({ error: 'Password is required.' }).min(1, 'Password is required.'),
+    rememberMe: rememberMeSchema,
   })
   .strict();
 

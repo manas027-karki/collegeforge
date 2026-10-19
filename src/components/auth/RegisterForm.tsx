@@ -1,6 +1,7 @@
 import { LoaderCircle, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ApiRequestError } from '../../lib/api'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../Button'
 import { Card } from '../Card'
@@ -28,12 +29,6 @@ const strengthConfig: Record<PasswordStrength, { label: string; bar: string; tex
   strong: { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-600' },
 }
 
-function waitForMockRequest(milliseconds: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, milliseconds)
-  })
-}
-
 function getPasswordStrength(password: string): PasswordStrength {
   if (password.length < 8) return 'weak'
 
@@ -53,13 +48,14 @@ function getPasswordStrength(password: string): PasswordStrength {
 
 export function RegisterForm() {
   const navigate = useNavigate()
-  const registerMockUser = useAppStore((state) => state.registerMockUser)
+  const register = useAppStore((state) => state.register)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [errors, setErrors] = useState<RegisterErrors>({})
+  const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null)
 
@@ -70,8 +66,9 @@ export function RegisterForm() {
     setErrors((current) => ({ ...current, [field]: value }))
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setMessage('')
 
     const nextErrors: RegisterErrors = {}
     const normalizedName = fullName.trim()
@@ -109,11 +106,18 @@ export function RegisterForm() {
     if (Object.values(nextErrors).some(Boolean)) return
 
     setIsSubmitting(true)
-    void waitForMockRequest(650).then(() => {
-      registerMockUser({ fullName: normalizedName, email: normalizedEmail })
-      setIsSubmitting(false)
+    try {
+      await register({ name: normalizedName, email: normalizedEmail, password })
       navigate('/dashboard')
-    })
+    } catch (error) {
+      setMessage(
+        error instanceof ApiRequestError
+          ? error.message
+          : 'Unable to create your account right now. Please try again.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -129,10 +133,6 @@ export function RegisterForm() {
           Start tracking your career journey today.
         </p>
       </div>
-
-      <AuthMessage type="info" className="mt-6">
-        Demo authentication is currently enabled.
-      </AuthMessage>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate aria-busy={isSubmitting}>
         <TextField
@@ -249,6 +249,8 @@ export function RegisterForm() {
             </p>
           ) : null}
         </div>
+
+        {message ? <AuthMessage type="error">{message}</AuthMessage> : null}
 
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (

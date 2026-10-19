@@ -139,9 +139,10 @@ const toSafeUser = (user: SelectedUser & { passwordHash?: string }): SafeUser =>
 export const createSession = async (
   userId: string,
   metadata: SessionMetadata,
+  rememberMe = false,
 ): Promise<CreatedSession> => {
   const token = generateSessionToken();
-  const expiresAt = getSessionExpiry();
+  const expiresAt = getSessionExpiry(new Date(), rememberMe);
 
   await prisma.session.create({
     data: {
@@ -240,7 +241,7 @@ export const registerUser = async (
     throw error;
   }
 
-  const session = await createSession(user.id, metadata);
+  const session = await createSession(user.id, metadata, input.rememberMe);
 
   return { user, ...session };
 };
@@ -276,7 +277,7 @@ export const authenticateUser = async (
 
   // Rebuilt field by field so `passwordHash` cannot ride along.
   const user = toSafeUser(record);
-  const session = await createSession(user.id, metadata);
+  const session = await createSession(user.id, metadata, input.rememberMe);
 
   return { user, ...session };
 };

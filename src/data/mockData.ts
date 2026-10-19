@@ -38,11 +38,6 @@ export const userProfile: UserProfile = {
   bio: '',
 }
 
-export const mockAuthUser: UserProfile = {
-  fullName: 'Demo User',
-  email: 'demo@careerforge.app',
-}
-
 const jobs: Job[] = [
   {
     id: 'job-msft-swe',
@@ -802,7 +797,6 @@ const resumes: Resume[] = [
 export const mockData = {
   user,
   userProfile,
-  mockAuthUser,
   jobs,
   applications,
   dsaStats,

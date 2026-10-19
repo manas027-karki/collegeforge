@@ -30,9 +30,11 @@ CareerForge is a **frontend application** built to manage the entire student job
 - 📅 **Plan daily study sessions**
 - 📊 **Understand progress** with interactive analytics charts
 
-> **Note:** The UI is complete and still runs entirely on realistic **mock data** (`src/data/mockData.ts`).
-> An Express + PostgreSQL backend now exists in `backend/` as a foundation for the next
-> phases; only `GET /api/health` is live, so nothing in the UI has switched over yet.
+> **Note:** The dashboard, jobs board, applications, DSA tracker, projects, study planner,
+> resumes, and analytics still read from realistic **mock data** (`src/data/mockData.ts`).
+> Authentication is the first slice to run against the real API: the login and register
+> forms call `POST /api/auth/*`, the session is a database-backed httpOnly cookie, and the
+> route guards verify it with `GET /api/auth/me` on every boot.
 
 ---
 
@@ -58,6 +60,7 @@ CareerForge is a **frontend application** built to manage the entire student job
 - **Tailwind CSS 4** — design system with a single primary accent color
 - **React Router 7** — client-side routing with layout routes
 - **Zustand 5** — lightweight global state
+- **Axios** — API client with credentialed cookie requests and a normalized error type
 - **Recharts 3** — responsive, clean data visualizations
 - **Lucide React** — consistent iconography
 
@@ -67,6 +70,27 @@ CareerForge is a two-part repository: the **frontend** (this Vite app, at the re
 **backend** (Express API, in `backend/`). They are installed and run
 separately. The frontend directory was intentionally left at the repository root, so there is no
 `cd frontend` step here — the commands below reflect the actual layout.
+
+### Run the whole stack
+
+Authentication needs both halves running at once:
+
+```bash
+# terminal 1 — API on :5000
+cd backend
+npm install
+cp .env.example .env        # then set your real PostgreSQL password
+npm run prisma:migrate
+npm run dev
+
+# terminal 2 — web on :5173
+npm install
+npm run dev
+```
+
+Open **http://localhost:5173** and sign up. The session is a database-backed httpOnly
+cookie, so the browser must be able to reach the API — keep the origins as above, or set
+`VITE_API_URL` and `FRONTEND_URL` to match.
 
 ### Frontend
 
@@ -86,6 +110,11 @@ npm run dev
 
 Open **http://localhost:5173** in your browser.
 
+The frontend calls the API at `http://localhost:5000` by default. To point it somewhere
+else, copy `.env.example` to `.env` and set `VITE_API_URL`. The value must be the exact
+origin the backend allows in `FRONTEND_URL`, otherwise the browser blocks the session
+cookie.
+
 ### Available scripts (frontend)
 
 | Command | Description |
@@ -94,6 +123,7 @@ Open **http://localhost:5173** in your browser.
 | `npm run build` | Type-check (`tsc -b`) then bundle for production |
 | `npm run preview` | Serve the production build locally |
 | `npm run lint` | Run Oxlint code-quality checks |
+| `npm run test:e2e` | Drive the auth journey in headless Chrome against a running stack |
 
 ---
 
@@ -157,7 +187,11 @@ Placeholders live in `backend/.env.example`.
 | `FRONTEND_URL` | yes | Exact frontend origin allowed by CORS (no wildcards) |
 | `PORT` | no | API port, defaults to `5000` |
 | `NODE_ENV` | no | `development` \| `test` \| `production`, defaults to `development` |
-| `COOKIE_NAME` | no | Future session cookie name, defaults to `careerforge_session` |
+| `COOKIE_NAME` | no | Session cookie name, defaults to `careerforge_session` |
+| `COOKIE_SAME_SITE` | no | `lax` \| `strict` \| `none`, defaults to `lax` |
+| `SESSION_DURATION_DAYS` | no | Default session lifetime, defaults to `7` |
+| `SESSION_DURATION_DAYS_REMEMBERED` | no | Lifetime when "remember me" is checked, defaults to `30` |
+| `BCRYPT_ROUNDS` | no | Password hashing cost factor, defaults to `12` |
 
 ### Available scripts (backend)
 
@@ -177,7 +211,10 @@ Placeholders live in `backend/.env.example`.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/health` | Liveness probe — no database round-trip, so it stays green before migrations run |
-| `ANY` | `/api/auth/*` | `501` — scaffolded for the authentication phase |
+| `POST` | `/api/auth/register` | Create an account and sign in — `201` |
+| `POST` | `/api/auth/login` | Verify credentials and sign in — `200` |
+| `POST` | `/api/auth/logout` | Invalidate the session — `200` (always) |
+| `GET` | `/api/auth/me` | Current user for the session cookie — `200`, `401` when signed out |
 | `ANY` | `/api/jobs/*` | `501` — scaffolded |
 | `ANY` | `/api/applications/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/dsa/*` | `401` — behind `requireAuth` |
@@ -210,14 +247,39 @@ Errors use the same envelope, with `code` always set and `stack`/`details` only 
 }
 ```
 
+### Authentication
+
+Session-based, cookie-based, and built so the raw token never touches the database.
+
+- **Passwords** are hashed with bcrypt at a configurable cost factor. Only the digest is
+  written, and it is never selected into a response — `SAFE_USER_SELECT` is an allow-list
+  projection, so `passwordHash` is not even read into memory on the request path.
+- **Session tokens** are 32 random bytes (256 bits) encoded base64url. PostgreSQL stores
+  only a SHA-256 digest, so a database leak cannot be replayed as a live session.
+- **The cookie is `httpOnly`**, so page JavaScript cannot read the token. It is `secure` in
+  production and `sameSite` is configurable.
+- **Login is not enumerable.** Unknown emails and wrong passwords return the same 401 with
+  the same wording, and an unknown email is compared against a decoy hash so response
+  latency cannot be used to discover which addresses are registered.
+- **Expired sessions are dead sessions.** The row is deleted on sight and can never
+  authenticate, even if it is still present.
+- **Logout always succeeds**, so signing out is a client-side state reset rather than an
+  error path.
+
+The frontend treats the cookie as the only source of truth. `GET /api/auth/me` is called
+once on boot; the route guards render a loader until it resolves, so a signed-in visitor is
+never bounced to the login screen on refresh.
+
 ### Data model
 
-`backend/prisma/schema.prisma` defines the initial relational model — `User`, `Company`, `Job`,
+`backend/prisma/schema.prisma` defines the relational model — `User`, `Company`, `Job`,
 `Application`, `DSAProblem`, `DSAProgress`, `Project`, `StudyTask`, `Resume`, and `Notification`,
-plus a `Session` table to back the future HTTP-only session cookie (only a hash of the opaque
+plus a `Session` table backing the HTTP-only session cookie (only a hash of the opaque
 cookie value is stored).
 
 - `Job` belongs to a `Company` via `companyId`; applications reference a `Job`.
+- `Job.experience` records the seniority band (`FRESHER`, `ONE_TO_TWO_YEARS`,
+  `THREE_TO_FIVE_YEARS`) that the job board filters on.
 - Uniqueness: `User.email`, `Application(userId, jobId)`, `DSAProgress(userId, problemId)`.
 - Deletion: user-owned rows (`Application`, `DSAProgress`, `Project`, `StudyTask`, `Resume`,
   `Notification`, `Session`) cascade when the user is deleted. `Company → Job` and
@@ -228,10 +290,15 @@ cookie value is stored).
 
 ### Migration status
 
-The `init` migration has been applied. `prisma/migrations/20260926112413_init/migration.sql` created
-11 tables (`users`, `sessions`, `companies`, `jobs`, `applications`, `dsa_problems`, `dsa_progress`,
-`projects`, `study_tasks`, `resumes`, `notifications`) and 11 enums in the `careerforge` database,
-and `prisma migrate status` reports the schema is up to date.
+Three migrations have been applied:
+
+1. `20260926112413_init` — 11 tables (`users`, `sessions`, `companies`, `jobs`,
+   `applications`, `dsa_problems`, `dsa_progress`, `projects`, `study_tasks`, `resumes`,
+   `notifications`) and 11 enums.
+2. `20260927042409_add_auth_sessions` — the `sessions(user_id, expires_at)` composite index
+   used by live-session lookups and expiry sweeps.
+3. `20261019120000_add_job_experience` — the `ExperienceLevel` enum and the
+   `jobs.experience` column.
 
 To rebuild it from scratch on another machine:
 
@@ -246,23 +313,49 @@ npm run prisma:migrate      # npx prisma migrate dev --name init
 
 ### Not implemented yet (by design)
 
-Authentication (login/register, bcrypt hashing, session cookie issuing, logout), every resource
-route, GitHub/LeetCode integrations, job scraping, AI, resume file storage, email, and the
-notification service. `requireAuth` rejects with `401` and never attaches a fabricated `req.user`,
-so no protected route can appear to work. The frontend mock auth store is still the only auth path
-in the app.
+Every resource route (jobs, applications, DSA, projects, study tasks, resumes, users) still
+returns `501` — those screens continue to read from mock data. Also outstanding:
+GitHub/LeetCode integrations, job scraping, AI, resume file storage, email, the notification
+service, rate limiting, and password reset. `requireAuth` rejects with `401` and never
+attaches a fabricated `req.user`, so no protected route can appear to work.
+
+## 🧪 Testing
+
+`e2e/auth.e2e.mjs` drives the real auth journey in headless Chrome over the DevTools
+Protocol — no test framework and no npm dependencies, just Node 22+ and a Chrome or Edge
+binary. It covers the whole loop: registering an account, the app booting and settling on
+the login screen, signing in, landing on the dashboard, the session surviving a reload,
+signing out, and a protected route redirecting when signed out. It also fails the run on
+any console error or failed network request.
+
+```bash
+# terminal 1
+cd backend && npm run dev
+
+# terminal 2
+npm run dev
+
+# terminal 3
+npm run test:e2e
+```
+
+Set `APP_URL` and `API_URL` to point at a different host, and `CHROME_PATH` if your
+browser is not in a standard location.
 
 ## 🗂️ Project Structure
 
 ```
 careerforge/
-├── src/                # React frontend (unchanged by backend work, kept at the repo root)
+├── e2e/                # headless-Chrome end-to-end tests (no dependencies)
+├── src/                # React frontend (kept at the repo root)
 │   ├── components/     # Reusable UI (Sidebar, Topbar, StatCard, StatusBadge, …)
 │   ├── layouts/        # DashboardLayout & AuthLayout shells
 │   ├── pages/          # Dashboard, Jobs, Applications, DSA, Projects, Study, Resume, Analytics, Settings, Login, Register
 │   ├── data/           # mockData.ts — all centralized mock data
 │   ├── store/          # useAppStore.ts — Zustand global state
-│   ├── lib/            # utilities (cn, date helpers)
+│   ├── lib/
+│   │   ├── api/        # axios client, normalized errors, auth endpoints
+│   │   ├── analytics.ts, cn.ts, dates.ts
 │   ├── config/         # navigation configuration
 │   └── types.ts        # shared TypeScript interfaces
 ├── backend/
@@ -276,9 +369,10 @@ careerforge/
 │       ├── controllers/    # request handlers
 │       ├── middleware/     # authMiddleware.ts, errorHandler.ts, notFound.ts
 │       ├── routes/         # routers mounted under /api
-│       ├── services/       # business logic + database access (next phase)
+│       ├── services/       # business logic + database access
 │       ├── types/          # Express request augmentation
-│       ├── utils/          # ApiError, httpResponse
+│       ├── validation/     # Zod request schemas
+│       ├── utils/          # ApiError, httpResponse, session
 │       ├── app.ts          # Express app factory
 │       └── server.ts       # HTTP listener + graceful shutdown
 └── ...
@@ -288,15 +382,20 @@ careerforge/
 
 - [x] Project setup, design system, routing, layout, dashboard, mock data
 - [x] Settings & integrations UI
-- [x] Mock authentication UI (login/register, protected routes, session persistence)
+- [x] Frontend UI for every screen (login/register, dashboard, jobs, applications, DSA,
+      projects, study planner, resume, analytics, settings)
 - [x] Backend foundation: Express app, env validation, Prisma schema, health endpoint
+- [x] Authentication API: register, login, logout, session cookie, route guards
+- [x] Frontend wired to the auth API with cookie-based session verification
+- [x] End-to-end auth test in headless Chrome
+- [ ] REST APIs for jobs, applications, DSA, projects, study tasks, resumes, users
+- [ ] Frontend switched from mock data to those APIs
 - [ ] Job board with search & filters
 - [ ] Kanban application tracker
 - [ ] DSA problem tracker
 - [ ] Project portfolio & study planner
 - [ ] Resume management & analytics dashboard
-- [ ] Authentication API (sessions, password hashing, route guards)
-- [ ] REST APIs for jobs, applications, DSA, projects, study tasks, resumes
+- [ ] Docker Compose, seed script, and CI
 - [ ] GitHub, LeetCode, and AI assistant integration
 
 ## 📄 License

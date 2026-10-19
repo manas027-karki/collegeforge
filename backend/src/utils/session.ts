@@ -47,9 +47,17 @@ export const generateSessionToken = (): string =>
 export const hashSessionToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
 
-/** Absolute expiry for a newly created session, from `SESSION_DURATION_DAYS`. */
-export const getSessionExpiry = (now: Date = new Date()): Date =>
-  new Date(now.getTime() + env.sessionDurationDays * 24 * 60 * 60 * 1000);
+/**
+ * Absolute expiry for a newly created session.
+ *
+ * `rememberMe` selects the longer lifetime configured in the environment.
+ * The durations are server-side on purpose: the client asks for a long-lived
+ * session, it does not get to pick how long that is.
+ */
+export const getSessionExpiry = (now: Date = new Date(), rememberMe = false): Date => {
+  const days = rememberMe ? env.sessionDurationDaysRemembered : env.sessionDurationDays;
+  return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+};
 
 /** Reads the raw token from the request cookie, or `null` when absent. */
 export const readSessionToken = (req: Request): string | null => {

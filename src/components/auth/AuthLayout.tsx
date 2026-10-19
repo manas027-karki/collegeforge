@@ -16,7 +16,7 @@ export function AuthLayout() {
             </div>
             <Outlet />
             <p className="mt-6 text-center text-xs text-neutral-400">
-              Demo authentication · No backend is connected
+              Sessions are protected by an httpOnly cookie
             </p>
           </div>
         </main>

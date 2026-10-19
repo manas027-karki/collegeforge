@@ -40,7 +40,9 @@ export function Sidebar() {
   }, [sidebarOpen])
 
   const handleLogout = () => {
-    logout()
+    // The API call is fire-and-forget: the local session is cleared either
+    // way, so the user is never left staring at a signed-in shell.
+    void logout()
     closeSidebar()
     navigate('/login')
   }

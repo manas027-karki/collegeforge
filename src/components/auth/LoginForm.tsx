@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../Button'
 import { Card } from '../Card'
 import { TextField } from '../TextField'
+import { ApiRequestError } from '../../lib/api'
 import { useAppStore } from '../../store/useAppStore'
 import { AuthDivider } from './AuthDivider'
 import { AuthMessage } from './AuthMessage'
@@ -22,15 +23,9 @@ interface LoginMessage {
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function waitForMockRequest(milliseconds: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, milliseconds)
-  })
-}
-
 export function LoginForm() {
   const navigate = useNavigate()
-  const loginMockUser = useAppStore((state) => state.loginMockUser)
+  const login = useAppStore((state) => state.login)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
@@ -54,7 +49,7 @@ export function LoginForm() {
     setMessage(null)
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setMessage(null)
 
@@ -75,11 +70,20 @@ export function LoginForm() {
     if (Object.values(nextErrors).some(Boolean)) return
 
     setIsSubmitting(true)
-    void waitForMockRequest(650).then(() => {
-      loginMockUser(email)
-      setIsSubmitting(false)
+    try {
+      await login({ email: email.trim(), password, rememberMe })
       navigate('/dashboard')
-    })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to sign in right now. Please try again.',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function openForgotPassword() {
@@ -123,10 +127,6 @@ export function LoginForm() {
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-900">Welcome back</h1>
         <p className="mt-1.5 text-sm text-neutral-500">Sign in to continue to CareerForge.</p>
       </div>
-
-      <AuthMessage type="info" className="mt-6">
-        Demo authentication is currently enabled.
-      </AuthMessage>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate aria-busy={isSubmitting}>
         <TextField

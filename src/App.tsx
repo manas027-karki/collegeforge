@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthLayout } from './components/auth/AuthLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './components/routing/ProtectedRoute'
 import { DashboardLayout } from './layouts/DashboardLayout'
@@ -13,8 +14,18 @@ import { Register } from './pages/Register'
 import { Resume } from './pages/Resume'
 import { Settings } from './pages/Settings'
 import { StudyPlanner } from './pages/StudyPlanner'
+import { useAppStore } from './store/useAppStore'
 
 export default function App() {
+  const bootstrapSession = useAppStore((state) => state.bootstrapSession)
+
+  // Verify the session cookie once, before any guard makes a routing
+  // decision. The cookie is httpOnly, so the app cannot read it directly and
+  // has to ask the API whether the visitor is signed in.
+  useEffect(() => {
+    void bootstrapSession()
+  }, [bootstrapSession])
+
   return (
     <BrowserRouter>
       <Routes>

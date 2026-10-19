@@ -22,6 +22,8 @@ const envSchema = z.object({
   // requires HTTPS, which `isProduction` already enforces.
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   SESSION_DURATION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+  // Longer lifetime for the "remember me" option on the login form.
+  SESSION_DURATION_DAYS_REMEMBERED: z.coerce.number().int().min(1).max(365).default(30),
   // bcrypt cost factor: 12 is a sensible interactive-login balance. 4-15 is the
   // range bcrypt itself accepts.
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
@@ -45,6 +47,7 @@ export const env = {
   cookieName: parsedEnv.data.COOKIE_NAME,
   cookieSameSite: parsedEnv.data.COOKIE_SAME_SITE,
   sessionDurationDays: parsedEnv.data.SESSION_DURATION_DAYS,
+  sessionDurationDaysRemembered: parsedEnv.data.SESSION_DURATION_DAYS_REMEMBERED,
   bcryptRounds: parsedEnv.data.BCRYPT_ROUNDS,
   isProduction: parsedEnv.data.NODE_ENV === 'production',
 } as const;
