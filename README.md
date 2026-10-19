@@ -89,8 +89,8 @@ npm run dev
 ```
 
 Open **http://localhost:5173** and sign up. The session is a database-backed httpOnly
-cookie, so the browser must be able to reach the API — keep the origins as above, or set
-`VITE_API_URL` and `FRONTEND_URL` to match.
+cookie. In development the browser only ever talks to the frontend origin — the Vite
+dev server proxies `/api` to the backend — so CORS is not part of the local setup.
 
 ### Frontend
 
@@ -110,10 +110,14 @@ npm run dev
 
 Open **http://localhost:5173** in your browser.
 
-The frontend calls the API at `http://localhost:5000` by default. To point it somewhere
-else, copy `.env.example` to `.env` and set `VITE_API_URL`. The value must be the exact
-origin the backend allows in `FRONTEND_URL`, otherwise the browser blocks the session
-cookie.
+The frontend calls the API at `/api/...` on its own origin, and the Vite dev
+server proxies those calls to the backend. That keeps the browser on a single
+origin, so there is no CORS negotiation in development and the session cookie
+behaves like a same-site request. It also makes `http://localhost:5173` and
+`http://127.0.0.1:5173` interchangeable.
+
+To point the app at a deployed API, set `VITE_API_URL` (see `.env.example`).
+To change where the dev server proxies to, set `VITE_PROXY_TARGET`.
 
 ### Available scripts (frontend)
 
@@ -173,7 +177,7 @@ npm run dev                 # http://localhost:5000
 - **TypeScript 7** in strict mode (`tsc --noEmit` clean), CommonJS output in `dist/`
 - **Prisma 7** with PostgreSQL, generating a typed client into `backend/src/generated/prisma`
 - **Zod**-validated environment configuration that fails fast on boot
-- **helmet**, **cors** (locked to `FRONTEND_URL` with credentials), **cookie-parser**,
+- **helmet**, **cors** (locked to an allow-list with credentials), **cookie-parser**,
   `express.json` body limits, and a single `{ success, message, ... }` response envelope
 
 ### Environment variables
@@ -184,7 +188,7 @@ Placeholders live in `backend/.env.example`.
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | yes | PostgreSQL connection string, e.g. `postgresql://postgres:YOUR_PASSWORD@localhost:5432/careerforge` |
-| `FRONTEND_URL` | yes | Exact frontend origin allowed by CORS (no wildcards) |
+| `FRONTEND_URL` | yes | Comma-separated allow-list of browser origins, e.g. `http://localhost:5173,http://127.0.0.1:5173` |
 | `PORT` | no | API port, defaults to `5000` |
 | `NODE_ENV` | no | `development` \| `test` \| `production`, defaults to `development` |
 | `COOKIE_NAME` | no | Session cookie name, defaults to `careerforge_session` |

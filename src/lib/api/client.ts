@@ -19,11 +19,23 @@ import axios, { type AxiosRequestConfig } from 'axios'
 /**
  * Base URL of the API.
  *
- * `VITE_API_URL` is read from the environment so the same bundle can point at
- * a local backend or a deployed one. The fallback matches the backend's
- * default port.
+ * In development this is empty on purpose: the Vite dev server proxies `/api`
+ * to the backend, so the browser stays on a single origin. That removes CORS
+ * from the equation entirely and makes the session cookie behave like a
+ * same-site request.
+ *
+ * A production build has to point at the deployed API, so `VITE_API_URL` wins
+ * when it is set.
  */
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000'
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim()
+
+export const API_BASE_URL =
+  configuredBaseUrl ||
+  (import.meta.env.DEV ? '' : 'http://localhost:5000')
+
+/** The origin the browser is actually on. Used in error messages. */
+export const CURRENT_ORIGIN =
+  typeof window === 'undefined' ? 'the browser' : window.location.origin
 
 /**
  * A failed API call, normalized across transport, HTTP, and validation errors.
@@ -120,8 +132,13 @@ const toApiRequestError = (error: unknown): ApiRequestError => {
     const status = error.response?.status ?? 0
 
     if (status === 0) {
+      // No response at all. The two usual causes are a backend that is not
+      // running and a CORS rejection, and the browser reports both the same
+      // way, so the message names both.
       return new ApiRequestError(
-        'Cannot reach the CareerForge API. Make sure the backend is running.',
+        `Cannot reach the CareerForge API from ${CURRENT_ORIGIN}. ` +
+          'Check that the backend is running, and that this origin is listed ' +
+          'in the backend\'s FRONTEND_URL.',
         0,
         'NETWORK_ERROR',
       )

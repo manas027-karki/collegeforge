@@ -14,7 +14,29 @@ const envSchema = z.object({
     .refine((value) => value.startsWith('postgresql://') || value.startsWith('postgres://'), {
       message: 'DATABASE_URL must be a PostgreSQL connection string',
     }),
-  FRONTEND_URL: z.url('FRONTEND_URL must be a valid URL'),
+  // A comma-separated allow-list of browser origins. Wildcards are not
+  // allowed: they are incompatible with cookie-based authentication, and the
+  // `Origin` header has to be reflected exactly or the browser blocks the
+  // response.
+  FRONTEND_URL: z
+    .string()
+    .min(1, 'FRONTEND_URL is required')
+    .refine(
+      (value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .every((entry) => {
+            try {
+              const url = new URL(entry);
+              return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch {
+              return false;
+            }
+          }),
+      { message: 'FRONTEND_URL must be a comma-separated list of http(s) origins' },
+    ),
   COOKIE_NAME: z.string().min(1).default('careerforge_session'),
   // `lax` covers same-site deployments (the usual api./app. subdomain split) and
   // local development, where the port difference does not make the request
@@ -43,7 +65,18 @@ export const env = {
   nodeEnv: parsedEnv.data.NODE_ENV,
   port: parsedEnv.data.PORT,
   databaseUrl: parsedEnv.data.DATABASE_URL,
-  frontendUrl: parsedEnv.data.FRONTEND_URL,
+  /**
+   * Every origin the API accepts requests from.
+   *
+   * The browser sends the exact origin it is on, so `http://localhost:5173`
+   * and `http://127.0.0.1:5173` are different origins and both have to be
+   * listed. Reflecting only the first one is what makes a request look like
+   * a network failure in the browser console.
+   */
+  frontendUrls: parsedEnv.data.FRONTEND_URL.split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean),
+  frontendUrl: parsedEnv.data.FRONTEND_URL.split(',')[0].trim(),
   cookieName: parsedEnv.data.COOKIE_NAME,
   cookieSameSite: parsedEnv.data.COOKIE_SAME_SITE,
   sessionDurationDays: parsedEnv.data.SESSION_DURATION_DAYS,
