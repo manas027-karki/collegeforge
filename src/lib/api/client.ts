@@ -19,19 +19,17 @@ import axios, { type AxiosRequestConfig } from 'axios'
 /**
  * Base URL of the API.
  *
- * In development this is empty on purpose: the Vite dev server proxies `/api`
- * to the backend, so the browser stays on a single origin. That removes CORS
- * from the equation entirely and makes the session cookie behave like a
- * same-site request.
+ * Empty means "same origin", which is the right default: the dev server
+ * proxies `/api` to the backend, `npm run preview` does the same, and a
+ * deployment behind a reverse proxy needs no configuration at all.
  *
- * A production build has to point at the deployed API, so `VITE_API_URL` wins
- * when it is set.
+ * `VITE_API_URL` overrides it, for a frontend hosted on a different origin
+ * from the API. Setting it is required in that case, because a cross-origin
+ * request needs the backend's CORS allow-list to include this origin.
  */
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim()
 
-export const API_BASE_URL =
-  configuredBaseUrl ||
-  (import.meta.env.DEV ? '' : 'http://localhost:5000')
+export const API_BASE_URL = configuredBaseUrl ?? ''
 
 /** The origin the browser is actually on. Used in error messages. */
 export const CURRENT_ORIGIN =

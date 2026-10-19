@@ -263,11 +263,22 @@ async function main() {
     check('dashboard still renders after reload', reloaded.hasGreeting === true)
 
     // --- 4. signing out locks the protected routes ------------------------
-    await session.evaluate(`(() => {
-      const button = [...document.querySelectorAll('button')].find((b) => /logout/i.test(b.textContent))
-      button?.click()
-      return true
-    })()`)
+    // Wait for the sidebar button to exist: on a narrow viewport the sidebar
+    // is translated off-screen, and the click would silently do nothing.
+    let logoutClicked = false
+    for (let attempt = 0; attempt < 20; attempt++) {
+      logoutClicked = await session.evaluate(`(() => {
+        const button = [...document.querySelectorAll('button')]
+          .find((b) => /logout/i.test(b.textContent))
+        if (!button) return false
+        button.click()
+        return true
+      })()`)
+      if (logoutClicked) break
+      await sleep(300)
+    }
+    check('logout button is reachable', logoutClicked === true)
+
     await sleep(2000)
     check('logout returns to the login screen', (await session.evaluate('location.pathname')) === '/login')
 
