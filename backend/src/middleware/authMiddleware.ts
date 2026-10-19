@@ -1,52 +1,71 @@
 /**
  * Authentication seam for the cookie-based session architecture.
  *
- * Intended request flow once the authentication phase lands:
- *
  *   Request --(COOKIE_NAME cookie)--> requireAuth --(Session lookup)--> req.user --> Controller
  *
- * Nothing is verified yet: no session cookie is ever issued and no token is
- * ever decoded, so `requireAuth` unconditionally rejects. It deliberately does
- * NOT attach a placeholder user, because a fabricated `req.user` would let
- * every protected route appear to work.
+ * The guard resolves the cookie to a live session. A missing, unknown, or
+ * expired session all produce the same 401 and the controller is never reached.
+ * Nothing is ever fabricated: `req.user` is set only from a verified database
+ * row.
  */
 import type { NextFunction, Request, Response } from 'express';
 
-import { env } from '../config/env';
+import { resolveSessionUser, type SafeUser } from '../services/auth.service';
+import { clearSessionCookie, readSessionToken } from '../utils/session';
 import { ApiError } from '../utils/ApiError';
 
 /**
- * Shape attached to `req.user` once a session is resolved. This is an explicit
- * allow-list rather than the Prisma `User` model so `passwordHash` cannot be
- * selected into a request-scoped object by accident.
+ * Shape attached to `req.user`. Mirrors `SafeUser`: identity and profile only,
+ * with no password hash and no session token. `requireAuth` populates it from
+ * the `SAFE_USER_SELECT` projection, so `passwordHash` is never even read.
  */
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  name: string;
-}
+export type AuthenticatedUser = SafeUser;
 
 /**
- * Columns to select when hydrating `req.user`. Phase 2 should reuse this so the
- * password hash is never read into memory.
+ * Columns to select when hydrating `req.user`. Re-exported from the service so
+ * the middleware and the response DTO cannot drift apart.
  */
-export const SESSION_USER_SELECT = {
-  id: true,
-  email: true,
-  name: true,
-} as const;
+export { SAFE_USER_SELECT } from '../services/auth.service';
+
+const SESSION_REQUIRED_MESSAGE = 'Authentication required.';
+const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';
 
 /**
  * Guard for authenticated routes.
  *
- * Phase 2 replaces the body below with: read the `env.cookieName` cookie, hash
- * it, look up a non-expired `Session`, then assign `req.user`.
+ * On failure the response is a 401 in the standard error envelope. The session
+ * cookie is also cleared so the browser stops replaying a token that can no
+ * longer authenticate — without that, a refresh would loop on the same dead
+ * cookie.
  */
-export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
-  void req;
-  next(
-    ApiError.unauthorized(
-      `Authentication is not implemented yet; no "${env.cookieName}" session cookie is ever issued.`,
-    ),
-  );
+export const requireAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const token = readSessionToken(req);
+
+  if (!token) {
+    next(ApiError.unauthorized(SESSION_REQUIRED_MESSAGE));
+    return;
+  }
+
+  let user: AuthenticatedUser | null;
+
+  try {
+    user = await resolveSessionUser(token);
+  } catch (error) {
+    // A database failure must not look like a valid session.
+    next(error);
+    return;
+  }
+
+  if (!user) {
+    clearSessionCookie(res);
+    next(ApiError.unauthorized(SESSION_EXPIRED_MESSAGE));
+    return;
+  }
+
+  req.user = user;
+  next();
 };

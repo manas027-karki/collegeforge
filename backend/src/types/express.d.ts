@@ -4,8 +4,9 @@ declare global {
   namespace Express {
     interface Request {
       /**
-       * Populated by `requireAuth` once session verification is implemented.
-       * Undefined for anonymous requests — never a fabricated user.
+       * Populated by `requireAuth` from a verified, non-expired `Session` row.
+       * Undefined for anonymous requests — never a fabricated user, and never
+       * carrying `passwordHash` or the session token.
        */
       user?: AuthenticatedUser;
     }

@@ -126,6 +126,8 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+  // Supports "which live sessions does this user have" and bulk expiry sweeps.
+  @@index([userId, expiresAt])
   @@map("sessions")
 }
 
