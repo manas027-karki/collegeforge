@@ -384,6 +384,10 @@ careerforge/
 
 ## 🗺️ Roadmap
 
+> **[ROADMAP.md](./ROADMAP.md)** is the working document: the current state, the
+> conventions to follow, every remaining task broken down file by file, the known
+> bugs, and the open decisions. Start there.
+
 - [x] Project setup, design system, routing, layout, dashboard, mock data
 - [x] Settings & integrations UI
 - [x] Frontend UI for every screen (login/register, dashboard, jobs, applications, DSA,
