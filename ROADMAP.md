@@ -106,6 +106,9 @@ each resource API lands:
 | `src/components/RecentActivity.tsx` | 20, 28 | `mockData.activities` |
 | `src/components/Sidebar.tsx` | 135 | `mockData.user.role` |
 
+The projects and study tasks no longer appear here: both are loaded from the API
+and live in the store, so the analytics screens read the user's real data.
+
 ---
 
 ## Conventions to follow
@@ -239,16 +242,31 @@ The Prisma model uses `technologies String[]` and a `ProjectStatus` enum
 
 ### 2.3 `study` (study tasks)
 
-- [ ] `validation/studyTask.schemas.ts`
-- [ ] `services/studyTask.service.ts` — plus a `toggle` action for
+- [x] `validation/studyTask.schemas.ts`
+- [x] `services/studyTask.service.ts` — plus a `toggle` action for
       `TODO <-> COMPLETED`
-- [ ] `controllers/studyTask.controller.ts`
-- [ ] `routes/study.routes.ts`
-- [ ] Frontend: `src/pages/StudyPlanner.tsx` + `src/components/study/*`
+- [x] `controllers/studyTask.controller.ts`
+- [x] `routes/study.routes.ts`
+- [x] Frontend: `src/lib/api/studyTasks.ts`, store actions `fetchStudyTasks` /
+      `createStudyTask` / `updateStudyTask` / `toggleStudyTask` / `deleteStudyTask`
+- [x] Frontend: `src/pages/StudyPlanner.tsx` + `src/components/study/*`
+- [x] E2E: a task is created, toggled, and survives a reload with its status
 
 The model requires `dueDate` (no default) and `category`. The frontend's `StudyTask`
 type has `createdAt` as a string and no `updatedAt` — check what you actually need
 before adding columns.
+
+**Notes on the finished work:**
+
+- **The toggle is its own endpoint.** `POST /api/study/tasks/:id/toggle` reads the
+  current status on the server and writes the opposite, so the client never has to
+  know what the status is. A `PATCH` with a status would let the two sides disagree
+  about what a task's state is.
+- **The due date comes back as a date-only string.** The planner groups tasks into
+  overdue / today / upcoming, and those are string comparisons against a date-only
+  value, so a full timestamp would not group correctly. The API stores the date at
+  UTC midnight, so the date the user picked is the date that is grouped.
+- The planner is loaded alongside the portfolio when the authenticated shell mounts.
 
 ### 2.4 `dsa`
 
