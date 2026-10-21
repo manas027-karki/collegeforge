@@ -10,19 +10,21 @@ export function DashboardLayout() {
   const fetchProjects = useAppStore((s) => s.fetchProjects)
   const fetchStudyTasks = useAppStore((s) => s.fetchStudyTasks)
   const fetchDSAProblems = useAppStore((s) => s.fetchDSAProblems)
+  const fetchResumes = useAppStore((s) => s.fetchResumes)
 
   useEffect(() => {
     closeSidebar()
   }, [pathname, closeSidebar])
 
-  // The portfolio, the study plan and the DSA tracker all belong to the
-  // account, so they are loaded once when the authenticated shell mounts and
-  // every screen renders from the store.
+  // The portfolio, the study plan, the DSA tracker and the resume versions
+  // all belong to the account, so they are loaded once when the authenticated
+  // shell mounts and every screen renders from the store.
   useEffect(() => {
     void fetchProjects()
     void fetchStudyTasks()
     void fetchDSAProblems()
-  }, [fetchProjects, fetchStudyTasks, fetchDSAProblems])
+    void fetchResumes()
+  }, [fetchProjects, fetchStudyTasks, fetchDSAProblems, fetchResumes])
 
   return (
     <div className="min-h-screen bg-neutral-50">

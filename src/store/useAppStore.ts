@@ -6,19 +6,21 @@ import {
   authApi,
   dsaApi,
   projectsApi,
+  resumesApi,
   setUnauthorizedHandler,
   toDSAProblemPayload,
   toDSAState,
   toProject,
   toProjectPayload,
+  toResume,
   toStudyTask,
   toStudyTaskPayload,
   toUpdatePayload,
   toUserProfile,
   studyTasksApi,
   usersApi,
+  type UpdateResumePayload,
 } from '../lib/api'
-import { TODAY_ISO } from '../lib/dates'
 import type {
   Application,
   ApplicationInput,
@@ -74,6 +76,10 @@ interface AppState extends AuthState {
   dsaFilters: DSAFilters
   projectFilters: ProjectFilters
   resumes: Resume[]
+  /** True while the resume list is being loaded from the API. */
+  resumesLoading: boolean
+  /** Last resume error, shown on the resume screen. */
+  resumesError: string | null
   resumeFilters: ResumeFilters
   /** True while a login or register request is in flight. */
   authPending: boolean
@@ -129,11 +135,12 @@ interface AppState extends AuthState {
   updateProject: (id: string, values: ProjectInput) => Promise<void>
   deleteProject: (id: string) => Promise<void>
   setProjectFilters: (filters: Partial<ProjectFilters>) => void
-  addResume: (input: ResumeInput) => void
-  updateResume: (id: string, updates: Partial<Resume>) => void
-  deleteResume: (id: string) => void
-  archiveResume: (id: string) => void
-  setCurrentResume: (id: string) => void
+  addResume: (input: ResumeInput, localFileUrl?: string) => Promise<void>
+  updateResume: (id: string, updates: UpdateResumePayload) => Promise<void>
+  deleteResume: (id: string) => Promise<void>
+  archiveResume: (id: string) => Promise<void>
+  setCurrentResume: (id: string) => Promise<void>
+  fetchResumes: () => Promise<void>
   setResumeFilters: (filters: Partial<ResumeFilters>) => void
   fetchStudyTasks: () => Promise<void>
   createStudyTask: (values: StudyTaskInput) => Promise<void>
@@ -208,7 +215,9 @@ export const useAppStore = create<AppState>()(
   dsaError: null,
   dsaFilters: { search: '', difficulty: 'ALL', topic: 'ALL', status: 'ALL' },
   projectFilters: { search: '', status: 'ALL', technology: 'ALL' },
-  resumes: mockData.resumes,
+  resumes: [],
+  resumesLoading: false,
+  resumesError: null,
   resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
 
   openSidebar: () => set({ sidebarOpen: true }),
@@ -578,64 +587,183 @@ export const useAppStore = create<AppState>()(
   setProjectFilters: (filters) =>
     set((state) => ({ projectFilters: { ...state.projectFilters, ...filters } })),
 
-  addResume: (input) =>
-    set((state) => {
-      const nextVersion =
-        state.resumes.reduce((max, resume) => Math.max(max, resume.version), 0) + 1
-      return {
-        resumes: [
-          {
-            id: `resume-${Date.now()}`,
-            ...input,
-            version: nextVersion,
-            status: 'CURRENT' as const,
-            uploadedAt: TODAY_ISO,
-            updatedAt: TODAY_ISO,
-          },
-          ...state.resumes.map((resume) =>
-            resume.status === 'CURRENT'
+  /**
+   * Loads the user's resumes from the API.
+   *
+   * The portfolio of resume versions belongs to the account, so it is loaded
+   * once when the authenticated shell mounts.
+   */
+  fetchResumes: async () => {
+    set({ resumesLoading: true, resumesError: null })
+
+    try {
+      const { data } = await resumesApi.list()
+      set({ resumes: data.map((resume) => toResume(resume)), resumesLoading: false })
+    } catch (error) {
+      set({
+        resumesLoading: false,
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your resumes right now.',
+      })
+    }
+  },
+
+  /**
+   * Creates a resume and makes it the current one.
+   *
+   * The server assigns the version number and archives the previous current
+   * resume, so the client does not have to reproduce either rule.
+   *
+   * `localFileUrl` is the blob URL for the file the user just picked. It
+   * only works for this session, so it is never sent to the server; it is
+   * kept locally so the user can download the file they just uploaded.
+   */
+  addResume: async (input, localFileUrl) => {
+    set({ resumesError: null })
+
+    try {
+      const { data } = await resumesApi.create({
+        fileName: input.fileName,
+        targetRole: input.targetRole,
+        fileType: input.fileType,
+        fileSize: input.fileSize ?? null,
+      })
+
+      set((state) => {
+        const created = toResume(data, localFileUrl)
+
+        return {
+          resumes: [
+            created,
+            // The server archived the previous current resume; mirror that
+            // so the two do not disagree on screen.
+            ...state.resumes.map((resume) =>
+              resume.status === 'CURRENT'
+                ? { ...resume, status: 'ARCHIVED' as const }
+                : resume,
+            ),
+          ],
+        }
+      })
+    } catch (error) {
+      set({
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to save the resume right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Updates a resume and replaces it in the store with the stored version. */
+  updateResume: async (id, updates) => {
+    set({ resumesError: null })
+
+    try {
+      const { data } = await resumesApi.update(id, updates)
+      set((state) => ({
+        resumes: state.resumes.map((resume) =>
+          resume.id === id
+            ? toResume(data, resume.fileUrl?.startsWith('blob:') ? resume.fileUrl : undefined)
+            : resume,
+        ),
+      }))
+    } catch (error) {
+      set({
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the resume right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Makes a resume the current one and archives the others.
+   *
+   * The server does both halves; the client sends one request and replaces
+   * the list with what came back.
+   */
+  setCurrentResume: async (id) => {
+    set({ resumesError: null })
+
+    try {
+      const { data } = await resumesApi.setCurrent(id)
+      const current = toResume(data)
+
+      set((state) => ({
+        resumes: state.resumes.map((resume) =>
+          resume.id === id
+            ? current
+            : resume.status === 'CURRENT'
               ? { ...resume, status: 'ARCHIVED' as const }
               : resume,
-          ),
-        ],
-      }
-    }),
+        ),
+      }))
+    } catch (error) {
+      set({
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the resume right now.',
+      })
+      throw error
+    }
+  },
 
-  updateResume: (id, updates) =>
-    set((state) => ({
-      resumes: state.resumes.map((resume) =>
-        resume.id === id ? { ...resume, ...updates, updatedAt: TODAY_ISO } : resume,
-      ),
-    })),
+  /** Archives a resume. */
+  archiveResume: async (id) => {
+    set({ resumesError: null })
 
-  deleteResume: (id) =>
-    set((state) => {
-      const target = state.resumes.find((resume) => resume.id === id)
-      if (target?.fileUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(target.fileUrl)
-      }
-      return {
-        resumes: state.resumes.filter((resume) => resume.id !== id),
-      }
-    }),
-
-  archiveResume: (id) =>
-    set((state) => ({
-      resumes: state.resumes.map((resume) =>
-        resume.id === id ? { ...resume, status: 'ARCHIVED' as const, updatedAt: TODAY_ISO } : resume,
-      ),
-    })),
-
-  setCurrentResume: (id) =>
-    set((state) => ({
-      resumes: state.resumes.map((resume) =>
-        resume.id === id
-          ? { ...resume, status: 'CURRENT' as const, updatedAt: TODAY_ISO }
-          : resume.status === 'CURRENT'
-            ? { ...resume, status: 'ARCHIVED' as const }
+    try {
+      const { data } = await resumesApi.update(id, { status: 'ARCHIVED' })
+      set((state) => ({
+        resumes: state.resumes.map((resume) =>
+          resume.id === id
+            ? toResume(data, resume.fileUrl?.startsWith('blob:') ? resume.fileUrl : undefined)
             : resume,
-      ),
-    })),
+        ),
+      }))
+    } catch (error) {
+      set({
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the resume right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Deletes a resume and drops it from the store. */
+  deleteResume: async (id) => {
+    set({ resumesError: null })
+
+    try {
+      await resumesApi.remove(id)
+      set((state) => {
+        const target = state.resumes.find((resume) => resume.id === id)
+        if (target?.fileUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(target.fileUrl)
+        }
+        return {
+          resumes: state.resumes.filter((resume) => resume.id !== id),
+        }
+      })
+    } catch (error) {
+      set({
+        resumesError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to delete the resume right now.',
+      })
+      throw error
+    }
+  },
 
   setResumeFilters: (filters) =>
     set((state) => ({ resumeFilters: { ...state.resumeFilters, ...filters } })),

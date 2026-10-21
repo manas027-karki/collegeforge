@@ -4,6 +4,7 @@ import {
   Download,
   Eye,
   FileText,
+  LoaderCircle,
   SearchX,
   Sparkles,
   Upload,
@@ -33,6 +34,8 @@ import type { Resume } from '../types'
 
 export function Resume() {
   const resumes = useAppStore((state) => state.resumes)
+  const resumesLoading = useAppStore((state) => state.resumesLoading)
+  const resumesError = useAppStore((state) => state.resumesError)
   const resumeFilters = useAppStore((state) => state.resumeFilters)
   const setResumeFilters = useAppStore((state) => state.setResumeFilters)
   const addResume = useAppStore((state) => state.addResume)
@@ -77,14 +80,20 @@ export function Resume() {
     setUploadOpen(true)
   }
 
-  const handleUpload = (values: UploadFormValues) => {
-    if (pendingFile) {
-      addResume({ ...values, fileUrl: URL.createObjectURL(pendingFile) })
-    } else {
-      addResume(values)
+  const handleUpload = async (values: UploadFormValues) => {
+    // The file itself is not uploaded: the API stores metadata only, and
+    // object storage is not wired up yet. The blob URL is kept locally so
+    // the user can still download the file they just picked.
+    const localFileUrl = pendingFile ? URL.createObjectURL(pendingFile) : undefined
+
+    try {
+      await addResume(values, localFileUrl)
+      setPendingFile(null)
+      setUploadOpen(false)
+    } catch {
+      // The store already recorded the reason; it is shown on the page.
+      if (localFileUrl) URL.revokeObjectURL(localFileUrl)
     }
-    setPendingFile(null)
-    setUploadOpen(false)
   }
 
   const handleDownload = (resume: Resume) => {
@@ -97,10 +106,16 @@ export function Resume() {
     link.remove()
   }
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) deleteResume(deleteTarget.id)
-    setDeleteTarget(null)
-    if (detailsId === deleteTarget?.id) setDetailsId(null)
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteResume(deleteTarget.id)
+    } catch {
+      // The store already recorded the reason.
+    } finally {
+      if (detailsId === deleteTarget.id) setDetailsId(null)
+      setDeleteTarget(null)
+    }
   }
 
   const currentMeta = currentResume
@@ -211,7 +226,25 @@ export function Resume() {
         onClear={handleResetFilters}
       />
 
-      {resumes.length === 0 ? (
+      {resumesError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+        >
+          {resumesError}
+        </p>
+      ) : null}
+
+      {resumesLoading ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-8 text-sm text-neutral-500"
+        >
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-primary-600" />
+          Loading your resumes...
+        </div>
+      ) : resumes.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No resumes yet"
@@ -239,8 +272,12 @@ export function Resume() {
           resumes={filteredResumes}
           onView={(resume) => setDetailsId(resume.id)}
           onDownload={handleDownload}
-          onSetCurrent={(resume) => setCurrentResume(resume.id)}
-          onArchive={(resume) => archiveResume(resume.id)}
+          onSetCurrent={(resume) => {
+            void setCurrentResume(resume.id)
+          }}
+          onArchive={(resume) => {
+            void archiveResume(resume.id)
+          }}
           onDelete={setDeleteTarget}
         />
       )}
@@ -262,8 +299,12 @@ export function Resume() {
           resume={detailsResume}
           onClose={() => setDetailsId(null)}
           onDownload={handleDownload}
-          onSetCurrent={(resume) => setCurrentResume(resume.id)}
-          onArchive={(resume) => archiveResume(resume.id)}
+          onSetCurrent={(resume) => {
+            void setCurrentResume(resume.id)
+          }}
+          onArchive={(resume) => {
+            void archiveResume(resume.id)
+          }}
         />
       ) : null}
 

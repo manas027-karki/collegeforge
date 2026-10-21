@@ -31,3 +31,10 @@ export {
   type DSAProblemPayload,
   type DSAProgressPayload,
 } from './dsa'
+export {
+  resumesApi,
+  toResume,
+  type ApiResume,
+  type CreateResumePayload,
+  type UpdateResumePayload,
+} from './resumes'
