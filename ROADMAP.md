@@ -104,9 +104,9 @@ each resource API lands:
 | `src/components/RecentActivity.tsx` | 20, 28 | `mockData.activities` |
 | `src/components/Sidebar.tsx` | 135 | `mockData.user.role` |
 
-The projects, study tasks and DSA problems no longer appear here: all three are
-loaded from the API and live in the store, so the analytics screens read the user's
-real data.
+The projects, study tasks, DSA problems and resume versions no longer appear here:
+all four are loaded from the API and live in the store, so the analytics screens read
+the user's real data.
 
 ---
 
@@ -304,11 +304,19 @@ write it down. `DSAProgress` is unique on `(userId, problemId)`.
 
 ### 2.5 `resumes`
 
-- [ ] `validation/resume.schemas.ts`
-- [ ] `services/resume.service.ts` — metadata only; `fileUrl` stays `null`
-- [ ] `controllers/resume.controller.ts`
-- [ ] `routes/resumes.routes.ts`
-- [ ] Frontend: `src/pages/Resume.tsx` + `src/components/resume/*`
+- [x] `validation/resume.schemas.ts`
+- [x] `services/resume.service.ts` — metadata only; the version number is assigned
+      by the server
+- [x] `controllers/resume.controller.ts`
+- [x] `routes/resumes.routes.ts`
+- [x] Migration `20261021120000_resume_current_unique` — a partial unique index
+      allowing only one current resume per user
+- [x] Frontend: `src/lib/api/resumes.ts`, store actions `fetchResumes` /
+      `addResume` / `updateResume` / `archiveResume` / `setCurrentResume` /
+      `deleteResume`
+- [x] Frontend: `src/pages/Resume.tsx` + `src/components/resume/*`
+- [x] E2E: a file is picked through the real file input and the resume survives a
+      reload
 
 The frontend currently stores the file as a `blob:` URL in the store and revokes it on
 delete. In the API-backed version the file is metadata only — there is no object storage
@@ -317,6 +325,22 @@ yet, so the upload button should either be disabled or clearly marked as
 
 `Resume.version` is a required `Int` with no default. The frontend auto-increments it
 in the store, so the service has to do that server-side instead.
+
+**Notes on the finished work:**
+
+- **One current resume is a database guarantee, not a client convention.** A partial
+  unique index on `resumes(user_id) WHERE status = 'CURRENT'` means two devices
+  promoting a resume at the same moment cannot both succeed.
+- **The version number is assigned by the server.** The client used to count the
+  resumes it had, which two devices would not agree on.
+- **A client cannot set `fileUrl`.** It is not accepted by the schema at all, because
+  there is no storage for it to point at yet, and a client that could set it could
+  point the app at any URL it liked.
+- **The file name is checked for path separators**, so a stored name can never be
+  something like `../../etc/passwd`, and the 5 MB limit is enforced on the server as
+  well as in the browser.
+- The blob URL for a file the user just picked is kept locally so they can still
+  download it in this session. It is never sent to the server.
 
 ### 2.6 `applications`
 

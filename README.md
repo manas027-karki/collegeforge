@@ -238,6 +238,12 @@ Placeholders live in `backend/.env.example`.
 | `PATCH` | `/api/dsa/problems/:id` | Partial problem update — `200` |
 | `DELETE` | `/api/dsa/problems/:id` | Delete a problem — `204` |
 | `PATCH` | `/api/dsa/progress/:problemId` | Update the user's progress on a problem — `200` |
+| `GET` | `/api/resumes` | The signed-in user's resume versions — `200` |
+| `POST` | `/api/resumes` | Create a resume and make it current — `201` |
+| `GET` | `/api/resumes/:id` | Read one resume — `200` |
+| `PATCH` | `/api/resumes/:id` | Partial resume update — `200` |
+| `POST` | `/api/resumes/:id/current` | Make a resume the current one — `200` |
+| `DELETE` | `/api/resumes/:id` | Delete a resume — `204` |
 | `ANY` | `/api/jobs/*` | `501` — scaffolded |
 | `ANY` | `/api/applications/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/dsa/*` | `401` — behind `requireAuth` |
@@ -335,11 +341,11 @@ npm run prisma:migrate      # npx prisma migrate dev --name init
 
 ### Not implemented yet (by design)
 
-The job board, applications, and resume routes still return `501` — those screens
-continue to read from mock data. Also outstanding: GitHub/LeetCode integrations, job
-scraping, AI, resume file storage, email, the notification service, rate limiting, and
-password reset. `requireAuth` rejects with `401` and never attaches a fabricated
-`req.user`, so no protected route can appear to work.
+The job board and the applications pipeline still return `501` — those screens continue
+to read from mock data. Also outstanding: GitHub/LeetCode integrations, job scraping,
+AI, resume file storage, email, the notification service, rate limiting, and password
+reset. `requireAuth` rejects with `401` and never attaches a fabricated `req.user`, so
+no protected route can appear to work.
 
 ## 🧪 Testing
 
