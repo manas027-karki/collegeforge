@@ -534,7 +534,125 @@ async function main() {
     }
     check('study task and its status survive a reload', taskPersisted === true)
 
-    // --- 7. signing out locks the protected routes ------------------------
+    // --- 7. the DSA tracker saves to the API ------------------------------
+    await session.send('Page.navigate', { url: `${APP_URL}/dsa` })
+
+    let dsaLoaded = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      dsaLoaded = await session.evaluate(
+        `document.body.innerText.includes('Add Problem')`,
+      )
+      if (dsaLoaded) break
+    }
+    check('DSA tracker loads', dsaLoaded === true)
+
+    await session.evaluate(`(() => {
+      const button = [...document.querySelectorAll('button')].find((b) =>
+        b.textContent.trim() === 'Add Problem',
+      )
+      button?.click()
+      return true
+    })()`)
+
+    let problemModalOpen = false
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(300)
+      problemModalOpen = await session.evaluate(
+        `!!document.getElementById('add-problem-title')`,
+      )
+      if (problemModalOpen) break
+    }
+    check('problem modal opens', problemModalOpen === true)
+
+    const filled = await session.evaluate(`(() => {
+      const setValue = (element, value) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')
+        descriptor.set.call(element, value)
+        // React maps onChange to 'input' for text inputs and 'change' for
+        // selects, so the event has to match the element.
+        const eventName = element.tagName === 'SELECT' ? 'change' : 'input'
+        element.dispatchEvent(new Event(eventName, { bubbles: true }))
+      }
+      // Scope the lookup to the dialog: the page behind it has filters with
+      // the same labels.
+      const dialog = document.getElementById('add-problem-title')?.closest('[role="dialog"]')
+      const field = (label) => {
+        const node = [...(dialog?.querySelectorAll('label') ?? [])].find(
+          (l) => l.textContent.trim() === label,
+        )
+        return node ? document.getElementById(node.getAttribute('for')) : null
+      }
+      const missing = []
+      for (const [label, value] of [
+        ['Title', 'E2E Problem'],
+        ['Topic', 'Arrays'],
+        ['URL', 'https://leetcode.com/problems/e2e'],
+      ]) {
+        const target = field(label)
+        if (!target) { missing.push(label); continue }
+        setValue(target, value)
+      }
+      return { missing }
+    })()`)
+    check('problem form fields are found', filled.missing.length === 0, JSON.stringify(filled))
+
+    await session.evaluate(`(() => {
+      const form = document.getElementById('add-problem-title')?.closest('form')
+      form?.requestSubmit()
+      return true
+    })()`)
+
+    let problemSaved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      problemSaved = await session.evaluate(
+        `document.body.innerText.includes('E2E Problem')`,
+      )
+      if (problemSaved) break
+    }
+    check('problem saves through the API', problemSaved === true)
+
+    // Mark it solved.
+    await session.evaluate(`(() => {
+      const button = [...document.querySelectorAll('button')].find(
+        (b) => b.getAttribute('title') === 'Mark as solved',
+      )
+      button?.click()
+      return true
+    })()`)
+
+    let markedSolved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      markedSolved = await session.evaluate(`(() => {
+        const button = [...document.querySelectorAll('button')].find(
+          (b) => b.getAttribute('title') === 'Mark as unsolved',
+        )
+        return !!button
+      })()`)
+      if (markedSolved) break
+    }
+    check('problem marks as solved', markedSolved === true)
+
+    // Reload and confirm it came back from the database, still solved.
+    await session.send('Page.reload', { ignoreCache: true })
+    let problemPersisted = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(500)
+      problemPersisted = await session.evaluate(`(() => {
+        const button = [...document.querySelectorAll('button')].find(
+          (b) => b.getAttribute('title') === 'Mark as unsolved',
+        )
+        return (
+          document.body.innerText.includes('E2E Problem') && !!button
+        )
+      })()`)
+      if (problemPersisted) break
+    }
+    check('problem and its status survive a reload', problemPersisted === true)
+
+    // --- 8. signing out locks the protected routes ------------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false
