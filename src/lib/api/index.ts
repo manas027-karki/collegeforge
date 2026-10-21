@@ -15,3 +15,10 @@ export {
   type ApiProject,
   type ProjectPayload,
 } from './projects'
+export {
+  studyTasksApi,
+  toStudyTask,
+  toStudyTaskPayload,
+  type ApiStudyTask,
+  type StudyTaskPayload,
+} from './studyTasks'

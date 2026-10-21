@@ -1,4 +1,4 @@
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, LoaderCircle, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import type {
   StudyTask,
@@ -17,8 +17,10 @@ export type TaskFormValues = Omit<StudyTaskInput, 'status'>
 
 interface TaskModalProps {
   task: StudyTask | null
+  /** True while the save request is in flight. */
+  saving?: boolean
   onClose: () => void
-  onSave: (values: TaskFormValues) => void
+  onSave: (values: TaskFormValues) => void | Promise<void>
 }
 
 interface FormState {
@@ -57,7 +59,7 @@ function initialFormState(task: StudyTask | null): FormState {
       }
 }
 
-export function TaskModal({ task, onClose, onSave }: TaskModalProps) {
+export function TaskModal({ task, saving = false, onClose, onSave }: TaskModalProps) {
   const [values, setValues] = useState<FormState>(() => initialFormState(task))
   const [errors, setErrors] = useState<FormErrors>({})
 
@@ -83,6 +85,8 @@ export function TaskModal({ task, onClose, onSave }: TaskModalProps) {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
 
+    if (saving) return
+
     const nextErrors: FormErrors = {}
     if (!values.title.trim()) nextErrors.title = 'Title is required.'
     if (!values.category) nextErrors.category = 'Category is required.'
@@ -100,7 +104,7 @@ export function TaskModal({ task, onClose, onSave }: TaskModalProps) {
 
     const minutes = Number(values.estimatedMinutes)
 
-    onSave({
+    void onSave({
       title: values.title.trim(),
       description: values.description.trim() || undefined,
       category: values.category,
@@ -274,11 +278,20 @@ export function TaskModal({ task, onClose, onSave }: TaskModalProps) {
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-neutral-100 bg-neutral-50/50 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit">
-            {task ? 'Save changes' : 'Add task'}
+          <Button type="submit" disabled={saving}>
+            {saving ? (
+              <>
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : task ? (
+              'Save changes'
+            ) : (
+              'Add task'
+            )}
           </Button>
         </div>
       </form>

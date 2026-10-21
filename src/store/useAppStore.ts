@@ -8,8 +8,11 @@ import {
   setUnauthorizedHandler,
   toProject,
   toProjectPayload,
+  toStudyTask,
+  toStudyTaskPayload,
   toUpdatePayload,
   toUserProfile,
+  studyTasksApi,
   usersApi,
 } from '../lib/api'
 import { TODAY_ISO } from '../lib/dates'
@@ -52,6 +55,10 @@ interface AppState extends AuthState {
   /** Last project error, shown on the projects screen. */
   projectsError: string | null
   tasks: StudyTask[]
+  /** True while the study planner is being loaded from the API. */
+  studyTasksLoading: boolean
+  /** Last study task error, shown on the planner screen. */
+  studyTasksError: string | null
   studyTaskFilters: StudyTaskFilters
   dashboardStats: DashboardStats
   jobsSaved: string[]
@@ -121,10 +128,11 @@ interface AppState extends AuthState {
   archiveResume: (id: string) => void
   setCurrentResume: (id: string) => void
   setResumeFilters: (filters: Partial<ResumeFilters>) => void
-  addStudyTask: (task: StudyTask) => void
-  updateStudyTask: (id: string, updates: StudyTaskInput) => void
-  deleteStudyTask: (id: string) => void
-  toggleStudyTask: (id: string) => void
+  fetchStudyTasks: () => Promise<void>
+  createStudyTask: (values: StudyTaskInput) => Promise<void>
+  updateStudyTask: (id: string, values: StudyTaskInput) => Promise<void>
+  deleteStudyTask: (id: string) => Promise<void>
+  toggleStudyTask: (id: string) => Promise<void>
   setStudyTaskFilters: (filters: Partial<StudyTaskFilters>) => void
   addDSAProblem: (input: DSAProblemInput) => void
   updateDSAProblem: (id: string, updates: DSAProblemInput) => void
@@ -174,7 +182,9 @@ export const useAppStore = create<AppState>()(
   projects: [],
   projectsLoading: false,
   projectsError: null,
-  tasks: mockData.studyTasks,
+  tasks: [],
+  studyTasksLoading: false,
+  studyTasksError: null,
   studyTaskFilters: {
     search: '',
     status: 'ALL',
@@ -408,7 +418,6 @@ export const useAppStore = create<AppState>()(
   resetDemoData: async () => {
     set({
       applications: [...mockData.applications],
-      tasks: [...mockData.studyTasks],
       studyTaskFilters: {
         search: '',
         status: 'ALL',
@@ -426,9 +435,11 @@ export const useAppStore = create<AppState>()(
       resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
     })
 
-    // The portfolio is server-owned now, so it is reloaded rather than reset
-    // to mock rows that do not exist in the database.
+    // The portfolio and the study plan are server-owned now, so they are
+    // reloaded rather than reset to mock rows that do not exist in the
+    // database.
     await get().fetchProjects()
+    await get().fetchStudyTasks()
   },
 
   addApplication: (application) =>
@@ -619,30 +630,109 @@ export const useAppStore = create<AppState>()(
   setResumeFilters: (filters) =>
     set((state) => ({ resumeFilters: { ...state.resumeFilters, ...filters } })),
 
-  addStudyTask: (task) =>
-    set((state) => ({ tasks: [task, ...state.tasks] })),
+  /**
+   * Loads the user's study tasks from the API.
+   *
+   * The planner is owned by the account, so it is loaded once when the
+   * authenticated shell mounts and every screen renders from the store.
+   */
+  fetchStudyTasks: async () => {
+    set({ studyTasksLoading: true, studyTasksError: null })
 
-  updateStudyTask: (id, updates) =>
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.id === id ? { ...task, ...updates } : task,
-      ),
-    })),
+    try {
+      const { data } = await studyTasksApi.list()
+      set({ tasks: data.map(toStudyTask), studyTasksLoading: false })
+    } catch (error) {
+      set({
+        studyTasksLoading: false,
+        studyTasksError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your study tasks right now.',
+      })
+    }
+  },
 
-  deleteStudyTask: (id) =>
-    set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),
+  /** Creates a study task and puts it in the store. */
+  createStudyTask: async (values) => {
+    set({ studyTasksError: null })
 
-  toggleStudyTask: (id) =>
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === 'COMPLETED' ? 'TODO' : 'COMPLETED',
-            }
-          : task,
-      ),
-    })),
+    try {
+      const { data } = await studyTasksApi.create(toStudyTaskPayload(values))
+      set((state) => ({ tasks: [toStudyTask(data), ...state.tasks] }))
+    } catch (error) {
+      set({
+        studyTasksError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to save the task right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Updates a study task and replaces it in the store with the stored version. */
+  updateStudyTask: async (id, values) => {
+    set({ studyTasksError: null })
+
+    try {
+      const { data } = await studyTasksApi.update(id, toStudyTaskPayload(values))
+      set((state) => ({
+        tasks: state.tasks.map((task) => (task.id === id ? toStudyTask(data) : task)),
+      }))
+    } catch (error) {
+      set({
+        studyTasksError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the task right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Flips a task between To Do and Completed.
+   *
+   * The server decides the new status, so the client does not have to know
+   * what the current one is.
+   */
+  toggleStudyTask: async (id) => {
+    set({ studyTasksError: null })
+
+    try {
+      const { data } = await studyTasksApi.toggle(id)
+      set((state) => ({
+        tasks: state.tasks.map((task) => (task.id === id ? toStudyTask(data) : task)),
+      }))
+    } catch (error) {
+      set({
+        studyTasksError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the task right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Deletes a study task and drops it from the store. */
+  deleteStudyTask: async (id) => {
+    set({ studyTasksError: null })
+
+    try {
+      await studyTasksApi.remove(id)
+      set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) }))
+    } catch (error) {
+      set({
+        studyTasksError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to delete the task right now.',
+      })
+      throw error
+    }
+  },
 
   setStudyTaskFilters: (filters) =>
     set((state) => ({

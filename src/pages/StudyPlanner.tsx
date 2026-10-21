@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { LoaderCircle, Plus } from 'lucide-react'
 import { Button } from '../components/Button'
 import {
   ConfirmDeleteTaskDialog,
@@ -15,15 +15,16 @@ import {
   computeStudyStats,
   computeWeeklyProgress,
 } from '../components/study/studyStatsUtils'
-import { TODAY_ISO } from '../lib/dates'
 import { useAppStore } from '../store/useAppStore'
 import type { StudyTask } from '../types'
 
 export function StudyPlanner() {
   const tasks = useAppStore((s) => s.tasks)
+  const studyTasksLoading = useAppStore((s) => s.studyTasksLoading)
+  const studyTasksError = useAppStore((s) => s.studyTasksError)
   const studyTaskFilters = useAppStore((s) => s.studyTaskFilters)
   const setStudyTaskFilters = useAppStore((s) => s.setStudyTaskFilters)
-  const addStudyTask = useAppStore((s) => s.addStudyTask)
+  const createStudyTask = useAppStore((s) => s.createStudyTask)
   const updateStudyTask = useAppStore((s) => s.updateStudyTask)
   const deleteStudyTask = useAppStore((s) => s.deleteStudyTask)
   const toggleStudyTask = useAppStore((s) => s.toggleStudyTask)
@@ -31,6 +32,7 @@ export function StudyPlanner() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<StudyTask | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<StudyTask | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const stats = useMemo(() => computeStudyStats(tasks), [tasks])
   const weekData = useMemo(() => computeWeeklyProgress(tasks), [tasks])
@@ -57,18 +59,20 @@ export function StudyPlanner() {
     setEditingTask(null)
   }
 
-  const handleSave = (values: TaskFormValues) => {
-    if (editingTask) {
-      updateStudyTask(editingTask.id, { ...values, status: editingTask.status })
-    } else {
-      addStudyTask({
-        id: `task-${Date.now()}`,
-        createdAt: TODAY_ISO,
-        status: 'TODO',
-        ...values,
-      })
+  const handleSave = async (values: TaskFormValues) => {
+    setSaving(true)
+    try {
+      if (editingTask) {
+        await updateStudyTask(editingTask.id, { ...values, status: editingTask.status })
+      } else {
+        await createStudyTask({ ...values, status: 'TODO' })
+      }
+      closeModal()
+    } catch {
+      // The store already recorded the reason; it is shown below.
+    } finally {
+      setSaving(false)
     }
-    closeModal()
   }
 
   const handleResetFilters = () => {
@@ -81,9 +85,15 @@ export function StudyPlanner() {
     })
   }
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) deleteStudyTask(deleteTarget.id)
-    setDeleteTarget(null)
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteStudyTask(deleteTarget.id)
+    } catch {
+      // The store already recorded the reason.
+    } finally {
+      setDeleteTarget(null)
+    }
   }
 
   return (
@@ -123,7 +133,25 @@ export function StudyPlanner() {
             onClear={handleResetFilters}
           />
 
-          {tasks.length === 0 ? (
+          {studyTasksError ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+            >
+              {studyTasksError}
+            </p>
+          ) : null}
+
+          {studyTasksLoading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-8 text-sm text-neutral-500"
+            >
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-primary-600" />
+              Loading your study plan...
+            </div>
+          ) : tasks.length === 0 ? (
             <EmptyTasks variant="empty" onAdd={openAddModal} onClear={handleResetFilters} />
           ) : (
             <TaskList
@@ -138,7 +166,9 @@ export function StudyPlanner() {
                   onClear={handleResetFilters}
                 />
               }
-              onToggle={(task) => toggleStudyTask(task.id)}
+              onToggle={(task) => {
+                void toggleStudyTask(task.id)
+              }}
               onEdit={openEditModal}
               onDelete={setDeleteTarget}
             />
@@ -153,6 +183,7 @@ export function StudyPlanner() {
       {modalOpen ? (
         <TaskModal
           task={editingTask}
+          saving={saving}
           onClose={closeModal}
           onSave={handleSave}
         />
