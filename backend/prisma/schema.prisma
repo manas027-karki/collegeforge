@@ -108,6 +108,7 @@ model User {
 
   sessions      Session[]
   applications  Application[]
+  dsaProblems   DSAProblem[]
   dsaProgress   DSAProgress[]
   projects      Project[]
   studyTasks    StudyTask[]
@@ -209,6 +210,7 @@ model Application {
 
 model DSAProblem {
   id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
   title      String        @db.VarChar(200)
   difficulty DSADifficulty
   topic      String        @db.VarChar(120)
@@ -217,8 +219,13 @@ model DSAProblem {
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
 
+  // Problems belong to the user who added them, like every other resource
+  // in the app. A shared catalogue would have made deleting a problem wipe
+  // every other user's progress on it, because the progress rows cascade.
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   progress DSAProgress[]
 
+  @@index([userId])
   @@index([difficulty])
   @@index([topic])
   @@index([platform])
