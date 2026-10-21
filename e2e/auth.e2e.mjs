@@ -742,7 +742,70 @@ async function main() {
     }
     check('resume survives a reload', resumePersisted === true)
 
-    // --- 9. signing out locks the protected routes ------------------------
+    // --- 9. the job board loads from the API ------------------------------
+    await session.send('Page.navigate', { url: `${APP_URL}/jobs` })
+
+    // `document.body` is briefly null while the document is being replaced,
+    // so every read of the page text goes through this.
+    const readBody = `document.body?.innerText ?? ''`
+
+    let boardLoaded = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      boardLoaded = await session.evaluate(
+        `Boolean((${readBody}).includes('Jobs & Internships'))`,
+      )
+      if (boardLoaded) break
+    }
+    check('job board loads', boardLoaded === true)
+
+    // The count only appears once the fetch lands, so poll for it rather
+    // than reading it straight after the heading appears.
+    let jobCount = null
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(400)
+      jobCount = await session.evaluate(`(() => {
+        const match = (${readBody}).match(/Showing\\s+(\\d+)\\s+of\\s+(\\d+)\\s+jobs/)
+        if (!match) return null
+        return { shown: Number(match[1]), total: Number(match[2]) }
+      })()`)
+      if (jobCount && jobCount.shown > 0) break
+    }
+    check(
+      'job board shows seeded jobs',
+      jobCount !== null && jobCount.shown > 0 && jobCount.total > 0,
+      JSON.stringify(jobCount),
+    )
+
+    // Filtering happens on the server, so the count has to change.
+    const filtered = await session.evaluate(`(() => {
+      const select = [...document.querySelectorAll('select')].find((s) =>
+        [...s.options].some((o) => o.value === 'CONTRACT'),
+      )
+      if (!select) return null
+      const descriptor = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(select),
+        'value',
+      )
+      descriptor.set.call(select, 'CONTRACT')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+      return true
+    })()`)
+    check('job type filter is present', filtered === true)
+
+    let contractOnly = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      contractOnly = await session.evaluate(`(() => {
+        const match = (${readBody}).match(/Showing\\s+(\\d+)\\s+of\\s+(\\d+)\\s+jobs/)
+        if (!match) return false
+        return Number(match[1]) > 0 && Number(match[1]) < Number(match[2])
+      })()`)
+      if (contractOnly) break
+    }
+    check('filtering by contract narrows the results', contractOnly === true)
+
+    // --- 10. signing out locks the protected routes -----------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false
