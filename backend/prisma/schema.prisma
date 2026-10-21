@@ -16,6 +16,7 @@ datasource db {
 enum JobType {
   INTERNSHIP
   FULL_TIME
+  CONTRACT
 }
 
 /// Seniority band a posting is aimed at. The job board filters on this.
