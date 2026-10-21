@@ -21,7 +21,7 @@
  *   API_URL   backend origin    (default http://localhost:5000)
  */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -652,7 +652,97 @@ async function main() {
     }
     check('problem and its status survive a reload', problemPersisted === true)
 
-    // --- 8. signing out locks the protected routes ------------------------
+    // --- 8. the resume manager saves to the API ---------------------------
+    await session.send('Page.navigate', { url: `${APP_URL}/resume` })
+
+    let resumeScreenLoaded = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      resumeScreenLoaded = await session.evaluate(
+        `document.body.innerText.includes('Upload Resume')`,
+      )
+      if (resumeScreenLoaded) break
+    }
+    check('resume manager loads', resumeScreenLoaded === true)
+
+    // Pick a real file through the real file input. The upload flow only
+    // stores metadata, but the file still has to get past the client's
+    // extension, MIME type and size checks.
+    const resumeFile = join(tmpdir(), 'careerforge-e2e-resume.pdf')
+    writeFileSync(resumeFile, '%PDF-1.4\n% careerforge e2e resume\n')
+
+    await session.send('DOM.enable')
+    const { root } = await session.send('DOM.getDocument')
+    const { nodeId } = await session.send('DOM.querySelector', {
+      nodeId: root.nodeId,
+      selector: 'input[type="file"]',
+    })
+    await session.send('DOM.setFileInputFiles', { files: [resumeFile], nodeId })
+
+    let uploadModalOpen = false
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(300)
+      uploadModalOpen = await session.evaluate(
+        `!!document.querySelector('input[placeholder="e.g. Software Engineer"], input[type="text"]')`,
+      )
+      if (uploadModalOpen) break
+    }
+    check('upload modal opens after picking a file', uploadModalOpen === true)
+
+    await session.evaluate(`(() => {
+      const setValue = (element, value) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')
+        descriptor.set.call(element, value)
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      const field = (label) => {
+        const node = [...document.querySelectorAll('label')].find(
+          (l) => l.textContent.trim() === label,
+        )
+        return node ? document.getElementById(node.getAttribute('for')) : null
+      }
+      const target = field('Target role')
+      if (!target) return { ok: false }
+      setValue(target, 'Software Engineer')
+      return { ok: true }
+    })()`)
+
+    await session.evaluate(`(() => {
+      const form = document.getElementById('upload-modal-title')?.closest('form')
+      form?.requestSubmit()
+      return true
+    })()`)
+
+    // The modal closing is the signal that the save went through. Checking
+    // for the file name alone would also match the modal's own file-name
+    // field, which is a false positive when the save fails.
+    let resumeSaved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      resumeSaved = await session.evaluate(`(() => {
+        const modalStillOpen = !!document.getElementById('upload-modal-title')
+        return (
+          !modalStillOpen &&
+          document.body.innerText.includes('careerforge-e2e-resume.pdf')
+        )
+      })()`)
+      if (resumeSaved) break
+    }
+    check('resume saves through the API', resumeSaved === true)
+
+    // Reload and confirm it came back from the database, with its version.
+    await session.send('Page.reload', { ignoreCache: true })
+    let resumePersisted = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(500)
+      resumePersisted = await session.evaluate(
+        `document.body.innerText.includes('careerforge-e2e-resume.pdf')`,
+      )
+      if (resumePersisted) break
+    }
+    check('resume survives a reload', resumePersisted === true)
+
+    // --- 9. signing out locks the protected routes ------------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false
