@@ -1,7 +1,12 @@
 import { ChevronDown, Search, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Card } from '../Card'
-import { JOB_TYPES, jobTypeLabel, sortOptions, type JobSort } from './jobMeta'
+import {
+  JOB_TYPE_FILTERS,
+  jobTypeFilterLabel,
+  sortOptions,
+  type JobSort,
+} from './jobMeta'
 
 interface JobFiltersProps {
   search: string
@@ -104,9 +109,9 @@ export function JobFilters({
 
           <FilterSelect label="Job type" value={type} onChange={onTypeChange}>
             <option value="all">All types</option>
-            {JOB_TYPES.map((jobType) => (
+            {JOB_TYPE_FILTERS.map((jobType) => (
               <option key={jobType} value={jobType}>
-                {jobTypeLabel[jobType]}
+                {jobTypeFilterLabel[jobType]}
               </option>
             ))}
           </FilterSelect>

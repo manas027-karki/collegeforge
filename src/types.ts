@@ -64,6 +64,23 @@ export type ApplicationStatus =
 export type JobType = 'Full-time' | 'Internship' | 'Contract'
 export type ExperienceLevel = 'Fresher' | '1-2 years' | '3-5 years'
 
+/** How the job board is ordered. */
+export type JobSort = 'newest' | 'deadline'
+
+/**
+ * The job board's filter state.
+ *
+ * `type` holds the API's enum value rather than the label the UI shows,
+ * because the filter is sent straight to the server.
+ */
+export interface JobFilters {
+  search: string
+  location: string
+  type: 'all' | 'INTERNSHIP' | 'FULL_TIME' | 'CONTRACT'
+  sort: JobSort
+  page: number
+}
+
 export interface Job {
   id: string
   company: string

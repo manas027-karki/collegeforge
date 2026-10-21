@@ -38,3 +38,13 @@ export {
   type CreateResumePayload,
   type UpdateResumePayload,
 } from './resumes'
+export {
+  jobsApi,
+  toJob,
+  type ApiCompany,
+  type ApiExperienceLevel,
+  type ApiJob,
+  type ApiJobMeta,
+  type ApiJobType,
+  type JobQuery,
+} from './jobs'

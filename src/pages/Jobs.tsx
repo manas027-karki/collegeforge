@@ -1,58 +1,42 @@
-import { useMemo, useState } from 'react'
-import { EmptyJobs } from '../components/jobs/EmptyJobs'
+import { useEffect, useState } from 'react'
+import { LoaderCircle, SearchX } from 'lucide-react'
+import { Button } from '../components/Button'
+import { EmptyState } from '../components/EmptyState'
 import { JobCard } from '../components/jobs/JobCard'
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal'
 import { JobFilters } from '../components/jobs/JobFilters'
-import type { JobSort } from '../components/jobs/jobMeta'
-import { mockData } from '../data/mockData'
 import { useAppStore } from '../store/useAppStore'
 
 export function Jobs() {
-  const jobs = mockData.jobs
-  const savedJobs = useAppStore((s) => s.jobsSaved)
+  const jobs = useAppStore((s) => s.jobs)
+  const jobsMeta = useAppStore((s) => s.jobsMeta)
+  const jobsLoading = useAppStore((s) => s.jobsLoading)
+  const jobsError = useAppStore((s) => s.jobsError)
+  const jobFilters = useAppStore((s) => s.jobFilters)
+  const setJobFilters = useAppStore((s) => s.setJobFilters)
+  const fetchJobs = useAppStore((s) => s.fetchJobs)
   const toggleJobSaved = useAppStore((s) => s.toggleJobSaved)
 
-  const [search, setSearch] = useState('')
-  const [location, setLocation] = useState('all')
-  const [type, setType] = useState('all')
-  const [sort, setSort] = useState<JobSort>('newest')
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
 
-  const locations = useMemo(
-    () => [...new Set(jobs.map((job) => job.location))].sort(),
-    [jobs],
-  )
+  // The job board is public, so it is fetched on its own rather than with
+  // the account's own data.
+  useEffect(() => {
+    void fetchJobs()
+  }, [fetchJobs])
 
-  const filteredJobs = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    const list = jobs.filter((job) => {
-      const matchesSearch =
-        query === '' ||
-        job.company.toLowerCase().includes(query) ||
-        job.title.toLowerCase().includes(query) ||
-        job.skills.some((skill) => skill.toLowerCase().includes(query))
-      const matchesLocation = location === 'all' || job.location === location
-      const matchesType = type === 'all' || job.type === type
-      return matchesSearch && matchesLocation && matchesType
-    })
-
-    return list.sort((a, b) =>
-      sort === 'newest'
-        ? b.postedAt.localeCompare(a.postedAt)
-        : a.deadline.localeCompare(b.deadline),
-    )
-  }, [jobs, search, location, type, sort])
-
-  const filtersActive = search.trim() !== '' || location !== 'all' || type !== 'all'
   const selectedJob = selectedJobId
     ? jobs.find((job) => job.id === selectedJobId) ?? null
     : null
 
   const handleReset = () => {
-    setSearch('')
-    setLocation('all')
-    setType('all')
-    setSort('newest')
+    setJobFilters({
+      search: '',
+      location: 'all',
+      type: 'all',
+      sort: 'newest',
+      page: 1,
+    })
   }
 
   return (
@@ -67,29 +51,60 @@ export function Jobs() {
         </p>
       </section>
 
+      {jobsError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+        >
+          {jobsError}
+        </p>
+      ) : null}
+
       <JobFilters
-        search={search}
-        onSearchChange={setSearch}
-        location={location}
-        onLocationChange={setLocation}
-        locations={locations}
-        type={type}
-        onTypeChange={setType}
-        sort={sort}
-        onSortChange={setSort}
-        resultCount={filteredJobs.length}
-        totalCount={jobs.length}
+        search={jobFilters.search}
+        onSearchChange={(value) => setJobFilters({ search: value })}
+        location={jobFilters.location}
+        onLocationChange={(value) => setJobFilters({ location: value })}
+        locations={jobsMeta.locations}
+        type={jobFilters.type}
+        onTypeChange={(value) =>
+          setJobFilters({ type: value as typeof jobFilters.type })
+        }
+        sort={jobFilters.sort}
+        onSortChange={(value) => setJobFilters({ sort: value })}
+        resultCount={jobsMeta.total}
+        totalCount={jobsMeta.totalAll}
         onClear={handleReset}
       />
 
-      {filteredJobs.length > 0 ? (
+      {jobsLoading ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-8 text-sm text-neutral-500"
+        >
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-primary-600" />
+          Loading the job board...
+        </div>
+      ) : jobs.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          title="No jobs found"
+          description="Nothing matches your current filters. Try adjusting the search, location or type."
+          action={
+            <Button variant="secondary" onClick={handleReset}>
+              Clear filters
+            </Button>
+          }
+        />
+      ) : (
         <section aria-label="Job listings">
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredJobs.map((job) => (
+            {jobs.map((job) => (
               <li key={job.id}>
                 <JobCard
                   job={job}
-                  saved={savedJobs.includes(job.id)}
+                  saved={job.saved}
                   onToggleSave={toggleJobSaved}
                   onViewDetails={(current) => setSelectedJobId(current.id)}
                 />
@@ -97,18 +112,12 @@ export function Jobs() {
             ))}
           </ul>
         </section>
-      ) : (
-        <EmptyJobs
-          query={search}
-          hasActiveFilters={filtersActive}
-          onReset={handleReset}
-        />
       )}
 
       {selectedJob ? (
         <JobDetailsModal
           job={selectedJob}
-          saved={savedJobs.includes(selectedJob.id)}
+          saved={selectedJob.saved}
           onClose={() => setSelectedJobId(null)}
           onToggleSave={toggleJobSaved}
         />

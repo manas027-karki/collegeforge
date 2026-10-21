@@ -5,11 +5,13 @@ import {
   ApiRequestError,
   authApi,
   dsaApi,
+  jobsApi,
   projectsApi,
   resumesApi,
   setUnauthorizedHandler,
   toDSAProblemPayload,
   toDSAState,
+  toJob,
   toProject,
   toProjectPayload,
   toResume,
@@ -32,6 +34,8 @@ import type {
   DSAProblem,
   DSAProblemInput,
   DSAProgress,
+  Job,
+  JobFilters,
   NotificationSettings,
   Project,
   ProjectFilters,
@@ -66,6 +70,24 @@ interface AppState extends AuthState {
   studyTasksError: string | null
   studyTaskFilters: StudyTaskFilters
   dashboardStats: DashboardStats
+  /** The job board page currently loaded from the API. */
+  jobs: Job[]
+  /** The page metadata the job board returned. */
+  jobsMeta: {
+    page: number
+    pageSize: number
+    total: number
+    totalAll: number
+    totalPages: number
+    locations: string[]
+  }
+  /** True while the job board is being loaded. */
+  jobsLoading: boolean
+  /** Last job board error, shown on the jobs screen. */
+  jobsError: string | null
+  /** The job board's filter state. */
+  jobFilters: JobFilters
+  /** The ids of the jobs the user has saved. */
   jobsSaved: string[]
   dsaProblems: DSAProblem[]
   dsaProgress: DSAProgress[]
@@ -130,6 +152,8 @@ interface AppState extends AuthState {
   deleteApplication: (id: string) => void
   updateApplicationStatus: (id: string, status: ApplicationStatus) => void
   toggleJobSaved: (jobId: string) => void
+  fetchJobs: () => Promise<void>
+  setJobFilters: (filters: Partial<JobFilters>) => void
   fetchProjects: () => Promise<void>
   createProject: (values: ProjectInput) => Promise<void>
   updateProject: (id: string, values: ProjectInput) => Promise<void>
@@ -208,6 +232,24 @@ export const useAppStore = create<AppState>()(
     sort: 'DUE_DATE',
   },
   dashboardStats: mockData.dashboardStats,
+  jobs: [],
+  jobsMeta: {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalAll: 0,
+    totalPages: 1,
+    locations: [],
+  },
+  jobsLoading: false,
+  jobsError: null,
+  jobFilters: {
+    search: '',
+    location: 'all',
+    type: 'all',
+    sort: 'newest',
+    page: 1,
+  },
   jobsSaved: mockData.jobs.filter((job) => job.saved).map((job) => job.id),
   dsaProblems: [],
   dsaProgress: [],
@@ -489,11 +531,72 @@ export const useAppStore = create<AppState>()(
       ),
     })),
 
+  /**
+   * Loads the job board from the API.
+   *
+   * The filters are sent to the server, which does the searching, filtering
+   * and paging, so the client never has to hold the whole catalogue.
+   */
+  fetchJobs: async () => {
+    set({ jobsLoading: true, jobsError: null })
+
+    const filters = get().jobFilters
+
+    try {
+      const { data, meta } = await jobsApi.list({
+        search: filters.search.trim() || undefined,
+        // 'all' is the dropdown's "no filter" value, not a real location.
+        location: filters.location === 'all' ? undefined : filters.location,
+        type: filters.type === 'all' ? undefined : filters.type,
+        sort: filters.sort,
+        page: filters.page,
+        pageSize: 20,
+      })
+
+      set((state) => ({
+        jobs: data.map((job) => toJob(job, state.jobsSaved.includes(job.id))),
+        jobsMeta: meta,
+        jobsLoading: false,
+      }))
+    } catch (error) {
+      set({
+        jobsLoading: false,
+        jobsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load the job board right now.',
+      })
+    }
+  },
+
+  /**
+   * Updates the job board filters and reloads.
+   *
+   * Changing a filter resets to the first page, because staying on page
+   * three of a result set that just shrank shows nothing.
+   */
+  setJobFilters: (filters: Partial<JobFilters>) => {
+    set((state) => ({
+      jobFilters: {
+        ...state.jobFilters,
+        ...filters,
+        page: filters.page ?? (filters.search || filters.location || filters.type ? 1 : state.jobFilters.page),
+      },
+    }))
+
+    void get().fetchJobs()
+  },
+
   toggleJobSaved: (jobId) =>
     set((state) => ({
       jobsSaved: state.jobsSaved.includes(jobId)
         ? state.jobsSaved.filter((id) => id !== jobId)
         : [...state.jobsSaved, jobId],
+      // The saved flag is part of the job the card renders, so it has to be
+      // updated in place as well as in the saved list.
+      jobs: state.jobs.map((job) =>
+        job.id === jobId ? { ...job, saved: !job.saved } : job,
+      ),
     })),
 
   /**
@@ -1119,6 +1222,10 @@ export const useAppStore = create<AppState>()(
         isAuthenticated: state.isAuthenticated,
         currentUser: state.currentUser,
         profile: state.profile,
+        // The saved job ids are the user's own state and there is no
+        // endpoint for them yet, so they are kept in the browser. They
+        // survive a refresh this way.
+        jobsSaved: state.jobsSaved,
       }),
     },
   ),
