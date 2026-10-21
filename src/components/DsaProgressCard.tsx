@@ -1,4 +1,5 @@
 import { ArrowRight, TrendingUp } from 'lucide-react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Area,
@@ -9,10 +10,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { mockData } from '../data/mockData'
+import { computeDSAStats } from './dsa/dsaStatsUtils'
+import { buildMonthlySolvedSeries } from '../lib/analytics'
+import { useAppStore } from '../store/useAppStore'
 import { Card } from './Card'
 import { ProgressBar } from './ProgressBar'
 import { SectionHeader } from './SectionHeader'
+
+/**
+ * The user's own target. Not a statistic, so it is not stored anywhere.
+ */
+const DSA_GOAL = 200
 
 function ChartTooltip({
   active,
@@ -35,13 +43,42 @@ function ChartTooltip({
 }
 
 export function DsaProgressCard() {
-  const { dsaStats } = mockData
+  const problems = useAppStore((s) => s.dsaProblems)
+  const progress = useAppStore((s) => s.dsaProgress)
+
+  const stats = useMemo(
+    () => computeDSAStats(problems, progress),
+    [problems, progress],
+  )
+  const monthly = useMemo(
+    () => buildMonthlySolvedSeries(progress),
+    [progress],
+  )
+
+  // The change in the number solved between the last two months. Left out
+  // entirely when there is not enough history to compare, rather than showing
+  // a made-up percentage.
+  const monthChange = useMemo(() => {
+    if (monthly.length < 2) return null
+
+    const last = monthly[monthly.length - 1].solved
+    const previous = monthly[monthly.length - 2].solved
+    const delta = last - previous
+
+    if (delta === 0) return null
+
+    return {
+      value: delta,
+      percent: previous === 0 ? 100 : Math.round((delta / previous) * 100),
+      up: delta > 0,
+    }
+  }, [monthly])
 
   return (
     <Card className="p-5">
       <SectionHeader
         title="DSA Progress"
-        subtitle={`${dsaStats.total} of ${dsaStats.goal} problems solved`}
+        subtitle={`${stats.totalSolved} of ${DSA_GOAL} problems solved`}
         action={
           <Link
             to="/dsa"
@@ -59,15 +96,25 @@ export function DsaProgressCard() {
             <p className="text-sm font-medium text-neutral-700">
               Problems solved over time
             </p>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-              <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
-              +12% this month
-            </span>
+            {monthChange ? (
+              <span
+                className={`inline-flex items-center gap-1 text-xs font-medium ${
+                  monthChange.up ? 'text-emerald-600' : 'text-rose-600'
+                }`}
+              >
+                <TrendingUp
+                  aria-hidden="true"
+                  className={`h-3.5 w-3.5 ${monthChange.up ? '' : 'rotate-180'}`}
+                />
+                {monthChange.up ? '+' : ''}
+                {monthChange.percent}% this month
+              </span>
+            ) : null}
           </div>
           <div className="mt-3 h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={dsaStats.monthly}
+                data={monthly}
                 margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
               >
                 <defs>
@@ -108,15 +155,30 @@ export function DsaProgressCard() {
         <div>
           <p className="text-sm font-medium text-neutral-700">Difficulty breakdown</p>
           <div className="mt-3 space-y-4">
-            <ProgressBar label="Easy" value={dsaStats.easy} total={dsaStats.total} tone="green" />
-            <ProgressBar label="Medium" value={dsaStats.medium} total={dsaStats.total} tone="amber" />
-            <ProgressBar label="Hard" value={dsaStats.hard} total={dsaStats.total} tone="red" />
+            <ProgressBar
+              label="Easy"
+              value={stats.solvedByDifficulty.EASY}
+              total={stats.totalSolved}
+              tone="green"
+            />
+            <ProgressBar
+              label="Medium"
+              value={stats.solvedByDifficulty.MEDIUM}
+              total={stats.totalSolved}
+              tone="amber"
+            />
+            <ProgressBar
+              label="Hard"
+              value={stats.solvedByDifficulty.HARD}
+              total={stats.totalSolved}
+              tone="red"
+            />
           </div>
           <div className="mt-5 rounded-lg bg-neutral-50 px-4 py-3 ring-1 ring-inset ring-neutral-200">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-medium text-neutral-600">Total solved</span>
               <span className="text-lg font-semibold tabular-nums tracking-tight text-neutral-900">
-                {dsaStats.total}
+                {stats.totalSolved}
               </span>
             </div>
           </div>
