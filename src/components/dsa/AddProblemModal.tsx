@@ -1,5 +1,5 @@
-import { ChevronDown, X } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { ChevronDown, LoaderCircle, X } from 'lucide-react'
+import { useState, useId, type FormEvent } from 'react'
 import type { Difficulty, DSAProblemInput, DSAPlatform } from '../../types'
 import { Button } from '../Button'
 import { TextField } from '../TextField'
@@ -7,7 +7,7 @@ import { DIFFICULTY_LABELS, DIFFICULTY_ORDER, DSA_TOPICS } from './dsaMeta'
 
 interface AddProblemModalProps {
   onClose: () => void
-  onSubmit: (input: DSAProblemInput) => void
+  onSubmit: (input: DSAProblemInput) => void | Promise<void>
 }
 
 interface AddFormState {
@@ -44,13 +44,16 @@ function SelectField({
   children: React.ReactNode
   error?: string
 }) {
+  const fieldId = useId()
+
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+      <label htmlFor={fieldId} className="mb-1.5 block text-sm font-medium text-neutral-700">
         {label}
       </label>
       <div className="relative">
         <select
+          id={fieldId}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           aria-invalid={error ? true : undefined}
@@ -75,9 +78,12 @@ function SelectField({
 export function AddProblemModal({ onClose, onSubmit }: AddProblemModalProps) {
   const [values, setValues] = useState<AddFormState>(initialForm)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [saving, setSaving] = useState(false)
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
+
+    if (saving) return
 
     const nextErrors: FormErrors = {}
     if (!values.title.trim()) nextErrors.title = 'Problem title is required.'
@@ -86,13 +92,18 @@ export function AddProblemModal({ onClose, onSubmit }: AddProblemModalProps) {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    onSubmit({
-      title: values.title.trim(),
-      difficulty: values.difficulty as Difficulty,
-      topic: values.topic,
-      platform: values.platform as DSAPlatform,
-      url: values.url.trim(),
-    })
+    setSaving(true)
+    try {
+      await onSubmit({
+        title: values.title.trim(),
+        difficulty: values.difficulty as Difficulty,
+        topic: values.topic,
+        platform: values.platform as DSAPlatform,
+        url: values.url.trim(),
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -200,10 +211,19 @@ export function AddProblemModal({ onClose, onSubmit }: AddProblemModalProps) {
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-neutral-100 bg-neutral-50/50 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit">Add problem</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? (
+              <>
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              'Add problem'
+            )}
+          </Button>
         </div>
       </form>
     </div>

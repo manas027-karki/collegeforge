@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Binary, Plus, SearchX } from 'lucide-react'
+import { Binary, LoaderCircle, Plus, SearchX } from 'lucide-react'
 import { AddProblemModal } from '../components/dsa/AddProblemModal'
 import { DifficultyChart } from '../components/dsa/DifficultyChart'
 import { DSAFilters } from '../components/dsa/DSAFilters'
@@ -11,13 +11,15 @@ import { ProblemDetailsModal } from '../components/dsa/ProblemDetailsModal'
 import { ProblemTable } from '../components/dsa/ProblemTable'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
-import { mockData } from '../data/mockData'
+import { buildMonthlySolvedSeries } from '../lib/analytics'
 import { useAppStore } from '../store/useAppStore'
 import type { DSAProblem, DSAProblemInput } from '../types'
 
 export function DSA() {
   const problems = useAppStore((s) => s.dsaProblems)
   const progress = useAppStore((s) => s.dsaProgress)
+  const dsaLoading = useAppStore((s) => s.dsaLoading)
+  const dsaError = useAppStore((s) => s.dsaError)
   const filters = useAppStore((s) => s.dsaFilters)
   const setDSAFilters = useAppStore((s) => s.setDSAFilters)
   const addDSAProblem = useAppStore((s) => s.addDSAProblem)
@@ -30,6 +32,13 @@ export function DSA() {
   const stats = useMemo(
     () => computeDSAStats(problems, progress),
     [problems, progress],
+  )
+
+  // The chart is built from the user's own solves rather than a fixed
+  // series, so it reflects what they have actually done.
+  const solvedOverTime = useMemo(
+    () => buildMonthlySolvedSeries(progress),
+    [progress],
   )
 
   const filteredProblems = useMemo(
@@ -49,15 +58,19 @@ export function DSA() {
   const handleToggleStatus = (problem: DSAProblem) => {
     const entry = progress.find((item) => item.problemId === problem.id)
     if (entry?.status === 'SOLVED') {
-      markProblemUnsolved(problem.id)
+      void markProblemUnsolved(problem.id)
     } else {
-      markProblemSolved(problem.id)
+      void markProblemSolved(problem.id)
     }
   }
 
-  const handleAddProblem = (input: DSAProblemInput) => {
-    addDSAProblem(input)
-    setAddOpen(false)
+  const handleAddProblem = async (input: DSAProblemInput) => {
+    try {
+      await addDSAProblem(input)
+      setAddOpen(false)
+    } catch {
+      // The store already recorded the reason; it is shown on the page.
+    }
   }
 
   const handleResetFilters = () => {
@@ -87,7 +100,7 @@ export function DSA() {
         aria-label="DSA charts"
         className="grid grid-cols-1 gap-4 lg:grid-cols-3"
       >
-        <DSAProgressChart data={mockData.dsaSolvedOverTime} />
+        <DSAProgressChart data={solvedOverTime} />
         <DifficultyChart stats={stats} />
       </section>
 
@@ -97,7 +110,25 @@ export function DSA() {
         totalCount={problems.length}
       />
 
-      {problems.length === 0 ? (
+      {dsaError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+        >
+          {dsaError}
+        </p>
+      ) : null}
+
+      {dsaLoading ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-8 text-sm text-neutral-500"
+        >
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-primary-600" />
+          Loading your problems...
+        </div>
+      ) : problems.length === 0 ? (
         <EmptyState
           icon={Binary}
           title="No DSA problems yet"

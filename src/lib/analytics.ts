@@ -182,6 +182,50 @@ export interface SolvedTimelinePoint {
   solved: number
 }
 
+export interface MonthlySolvedPoint {
+  month: string
+  solved: number
+}
+
+/**
+ * Builds a cumulative count of the problems solved in each month.
+ *
+ * The chart reads "problems solved over time", so the count is cumulative
+ * rather than a per-month tally. Months with nothing solved are left out
+ * instead of showing as a flat run, and the label carries the year once the
+ * series spans more than one, so it stays readable.
+ */
+export function buildMonthlySolvedSeries(
+  progress: readonly DSAProgress[],
+): MonthlySolvedPoint[] {
+  const solved = progress
+    .filter((item) => item.status === 'SOLVED' && item.lastSolvedAt)
+    .map((item) => item.lastSolvedAt as string)
+
+  if (solved.length === 0) return []
+
+  const counts = new Map<string, number>()
+  for (const dateIso of solved) {
+    const month = dateIso.slice(0, 7)
+    counts.set(month, (counts.get(month) ?? 0) + 1)
+  }
+
+  const months = [...counts.keys()].sort()
+  const spansYears = new Set(months.map((month) => month.slice(0, 4))).size > 1
+
+  let running = 0
+  return months.map((month) => {
+    running += counts.get(month) ?? 0
+
+    const [year, monthIndex] = month.split('-')
+    const label = new Date(
+      Date.UTC(Number(year), Number(monthIndex) - 1, 1),
+    ).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+
+    return { month: spansYears ? `${label} ${year}` : label, solved: running }
+  })
+}
+
 export function buildSolvedTimeline(
   progress: readonly DSAProgress[],
   range: TimeRange,

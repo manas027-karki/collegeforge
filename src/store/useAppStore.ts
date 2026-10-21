@@ -4,8 +4,11 @@ import { mockData } from '../data/mockData'
 import {
   ApiRequestError,
   authApi,
+  dsaApi,
   projectsApi,
   setUnauthorizedHandler,
+  toDSAProblemPayload,
+  toDSAState,
   toProject,
   toProjectPayload,
   toStudyTask,
@@ -64,6 +67,10 @@ interface AppState extends AuthState {
   jobsSaved: string[]
   dsaProblems: DSAProblem[]
   dsaProgress: DSAProgress[]
+  /** True while the DSA tracker is being loaded from the API. */
+  dsaLoading: boolean
+  /** Last DSA error, shown on the tracker screen. */
+  dsaError: string | null
   dsaFilters: DSAFilters
   projectFilters: ProjectFilters
   resumes: Resume[]
@@ -134,12 +141,13 @@ interface AppState extends AuthState {
   deleteStudyTask: (id: string) => Promise<void>
   toggleStudyTask: (id: string) => Promise<void>
   setStudyTaskFilters: (filters: Partial<StudyTaskFilters>) => void
-  addDSAProblem: (input: DSAProblemInput) => void
-  updateDSAProblem: (id: string, updates: DSAProblemInput) => void
-  deleteDSAProblem: (id: string) => void
-  markProblemSolved: (problemId: string) => void
-  markProblemUnsolved: (problemId: string) => void
-  recordAttempt: (problemId: string) => void
+  addDSAProblem: (input: DSAProblemInput) => Promise<void>
+  updateDSAProblem: (id: string, updates: DSAProblemInput) => Promise<void>
+  deleteDSAProblem: (id: string) => Promise<void>
+  markProblemSolved: (problemId: string) => Promise<void>
+  markProblemUnsolved: (problemId: string) => Promise<void>
+  recordAttempt: (problemId: string) => Promise<void>
+  fetchDSAProblems: () => Promise<void>
   setDSAFilters: (filters: Partial<DSAFilters>) => void
 }
 
@@ -194,8 +202,10 @@ export const useAppStore = create<AppState>()(
   },
   dashboardStats: mockData.dashboardStats,
   jobsSaved: mockData.jobs.filter((job) => job.saved).map((job) => job.id),
-  dsaProblems: mockData.dsaProblems,
-  dsaProgress: mockData.dsaProgress,
+  dsaProblems: [],
+  dsaProgress: [],
+  dsaLoading: false,
+  dsaError: null,
   dsaFilters: { search: '', difficulty: 'ALL', topic: 'ALL', status: 'ALL' },
   projectFilters: { search: '', status: 'ALL', technology: 'ALL' },
   resumes: mockData.resumes,
@@ -739,54 +749,235 @@ export const useAppStore = create<AppState>()(
       studyTaskFilters: { ...state.studyTaskFilters, ...filters },
     })),
 
-  addDSAProblem: (input) =>
-    set((state) => {
-      const id = `dsa-${Date.now()}`
-      return {
-        dsaProblems: [{ id, ...input }, ...state.dsaProblems],
-        dsaProgress: [{ problemId: id, status: 'UNSOLVED', attempts: 0 }, ...state.dsaProgress],
-      }
-    }),
+  /**
+   * Loads the user's problems and their progress from the API.
+   *
+   * The two travel together in one request and are split back apart here,
+   * because the store keeps them separately.
+   */
+  fetchDSAProblems: async () => {
+    set({ dsaLoading: true, dsaError: null })
 
-  updateDSAProblem: (id, updates) =>
-    set((state) => ({
-      dsaProblems: state.dsaProblems.map((problem) =>
-        problem.id === id ? { ...problem, ...updates } : problem,
-      ),
-    })),
+    try {
+      const { data } = await dsaApi.list()
+      const { problems, progress } = toDSAState(data)
+      set({ dsaProblems: problems, dsaProgress: progress, dsaLoading: false })
+    } catch (error) {
+      set({
+        dsaLoading: false,
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your problems right now.',
+      })
+    }
+  },
 
-  deleteDSAProblem: (id) =>
-    set((state) => ({
-      dsaProblems: state.dsaProblems.filter((problem) => problem.id !== id),
-      dsaProgress: state.dsaProgress.filter((item) => item.problemId !== id),
-    })),
+  /** Adds a problem and puts it in the store. */
+  addDSAProblem: async (input) => {
+    set({ dsaError: null })
 
-  markProblemSolved: (problemId) =>
-    set((state) => ({
-      dsaProgress: state.dsaProgress.map((item) =>
-        item.problemId === problemId
-          ? { ...item, status: 'SOLVED', lastSolvedAt: TODAY_ISO }
-          : item,
-      ),
-    })),
+    try {
+      const { data } = await dsaApi.create(toDSAProblemPayload(input))
+      set((state) => ({
+        dsaProblems: [
+          {
+            id: data.id,
+            title: data.title,
+            difficulty: data.difficulty,
+            topic: data.topic,
+            platform: data.platform,
+            url: data.url,
+          },
+          ...state.dsaProblems,
+        ],
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to add the problem right now.',
+      })
+      throw error
+    }
+  },
 
-  markProblemUnsolved: (problemId) =>
-    set((state) => ({
-      dsaProgress: state.dsaProgress.map((item) =>
-        item.problemId === problemId
-          ? { ...item, status: 'UNSOLVED' }
-          : item,
-      ),
-    })),
+  /** Updates a problem and replaces it in the store with the stored version. */
+  updateDSAProblem: async (id, updates) => {
+    set({ dsaError: null })
 
-  recordAttempt: (problemId) =>
-    set((state) => ({
-      dsaProgress: state.dsaProgress.map((item) =>
-        item.problemId === problemId
-          ? { ...item, attempts: item.attempts + 1 }
-          : item,
-      ),
-    })),
+    try {
+      const { data } = await dsaApi.update(id, toDSAProblemPayload(updates))
+      set((state) => ({
+        dsaProblems: state.dsaProblems.map((problem) =>
+          problem.id === id
+            ? {
+                id: data.id,
+                title: data.title,
+                difficulty: data.difficulty,
+                topic: data.topic,
+                platform: data.platform,
+                url: data.url,
+              }
+            : problem,
+        ),
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the problem right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Deletes a problem and drops it, and its progress, from the store. */
+  deleteDSAProblem: async (id) => {
+    set({ dsaError: null })
+
+    try {
+      await dsaApi.remove(id)
+      set((state) => ({
+        dsaProblems: state.dsaProblems.filter((problem) => problem.id !== id),
+        dsaProgress: state.dsaProgress.filter((item) => item.problemId !== id),
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to delete the problem right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Marks a problem solved.
+   *
+   * The server stamps the time it was solved, so the client does not have to
+   * send a date and cannot send a wrong one.
+   */
+  markProblemSolved: async (problemId) => {
+    set({ dsaError: null })
+
+    try {
+      const { data } = await dsaApi.setProgress(problemId, { status: 'SOLVED' })
+      set((state) => ({
+        dsaProgress: state.dsaProgress.some((item) => item.problemId === problemId)
+          ? state.dsaProgress.map((item) =>
+              item.problemId === problemId
+                ? {
+                    ...item,
+                    status: data.status,
+                    attempts: data.attempts,
+                    lastSolvedAt: data.lastSolvedAt ?? undefined,
+                  }
+                : item,
+            )
+          : [
+              ...state.dsaProgress,
+              {
+                problemId,
+                status: data.status,
+                attempts: data.attempts,
+                lastSolvedAt: data.lastSolvedAt ?? undefined,
+              },
+            ],
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the problem right now.',
+      })
+    }
+  },
+
+  /** Marks a problem unsolved. The time it was last solved is kept. */
+  markProblemUnsolved: async (problemId) => {
+    set({ dsaError: null })
+
+    try {
+      const { data } = await dsaApi.setProgress(problemId, { status: 'UNSOLVED' })
+      set((state) => ({
+        dsaProgress: state.dsaProgress.some((item) => item.problemId === problemId)
+          ? state.dsaProgress.map((item) =>
+              item.problemId === problemId
+                ? {
+                    ...item,
+                    status: data.status,
+                    attempts: data.attempts,
+                    lastSolvedAt: data.lastSolvedAt ?? undefined,
+                  }
+                : item,
+            )
+          : [
+              ...state.dsaProgress,
+              {
+                problemId,
+                status: data.status,
+                attempts: data.attempts,
+                lastSolvedAt: data.lastSolvedAt ?? undefined,
+              },
+            ],
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the problem right now.',
+      })
+    }
+  },
+
+  /**
+   * Records an attempt on a problem.
+   *
+   * The server owns the counter, so the client asks for an increment rather
+   * than sending a count it read a moment ago.
+   */
+  recordAttempt: async (problemId) => {
+    set({ dsaError: null })
+
+    try {
+      const { data } = await dsaApi.setProgress(problemId, { incrementAttempts: true })
+      set((state) => ({
+        dsaProgress: state.dsaProgress.some((item) => item.problemId === problemId)
+          ? state.dsaProgress.map((item) =>
+              item.problemId === problemId
+                ? {
+                    ...item,
+                    status: data.status,
+                    attempts: data.attempts,
+                    lastSolvedAt: data.lastSolvedAt ?? undefined,
+                  }
+                : item,
+            )
+          : [
+              ...state.dsaProgress,
+              {
+                problemId,
+                status: data.status,
+                attempts: data.attempts,
+                lastSolvedAt: data.lastSolvedAt ?? undefined,
+              },
+            ],
+      }))
+    } catch (error) {
+      set({
+        dsaError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to record the attempt right now.',
+      })
+    }
+  },
 
   setDSAFilters: (filters) =>
     set((state) => ({ dsaFilters: { ...state.dsaFilters, ...filters } })),

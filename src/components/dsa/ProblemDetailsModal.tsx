@@ -52,9 +52,14 @@ export function ProblemDetailsModal({ problem, onClose }: ProblemDetailsModalPro
     }
   }
 
-  const handleDelete = () => {
-    deleteDSAProblem(problem.id)
-    onClose()
+  const handleDelete = async () => {
+    try {
+      await deleteDSAProblem(problem.id)
+      onClose()
+    } catch {
+      // The store already recorded the reason; the modal stays open so the
+      // problem is still there to retry with.
+    }
   }
 
   return (
@@ -153,17 +158,24 @@ export function ProblemDetailsModal({ problem, onClose }: ProblemDetailsModalPro
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-neutral-100 bg-neutral-50/50 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <Button variant="ghost" onClick={() => recordAttempt(problem.id)}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              void recordAttempt(problem.id)
+            }}
+          >
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
             Record attempt
           </Button>
           <Button
             variant={solved ? 'secondary' : 'primary'}
-            onClick={() =>
-              solved
-                ? markProblemUnsolved(problem.id)
-                : markProblemSolved(problem.id)
-            }
+            onClick={() => {
+              if (solved) {
+                void markProblemUnsolved(problem.id)
+              } else {
+                void markProblemSolved(problem.id)
+              }
+            }}
           >
             {solved ? 'Mark Unsolved' : 'Mark Solved'}
           </Button>
