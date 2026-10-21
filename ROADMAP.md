@@ -98,15 +98,14 @@ each resource API lands:
 
 | File | Line | Reads |
 |---|---|---|
-| `src/pages/Jobs.tsx` | 11 | `mockData.jobs` |
 | `src/components/DeadlineList.tsx` | 33 | `mockData.deadlines` |
 | `src/components/NotificationsMenu.tsx` | 77 | `mockData.activities` |
 | `src/components/RecentActivity.tsx` | 20, 28 | `mockData.activities` |
 | `src/components/Sidebar.tsx` | 135 | `mockData.user.role` |
 
-The projects, study tasks, DSA problems and resume versions no longer appear here:
-all four are loaded from the API and live in the store, so the analytics screens read
-the user's real data.
+The projects, study tasks, DSA problems, resume versions and job board no longer
+appear here: all five are loaded from the API and live in the store, so the analytics
+screens read the user's real data.
 
 ---
 
@@ -361,15 +360,41 @@ Unique on `(userId, jobId)` — creating a duplicate must return a 409.
 
 ### 2.7 `jobs` (public, the hardest one)
 
-- [ ] `validation/job.schemas.ts` — search, filters, sort, pagination
-- [ ] `services/job.service.ts` — list with filters, get one, plus any admin write path
-- [ ] `controllers/job.controller.ts`
-- [ ] `routes/jobs.routes.ts` — note this router is **public**: no `requireAuth`
-- [ ] Frontend: `src/pages/Jobs.tsx` + `src/components/jobs/*`
-- [ ] Pagination — no endpoint paginates yet, and jobs/DSA lists will need it
+- [x] `validation/job.schemas.ts` — search, filters, sort, pagination
+- [x] `services/job.service.ts` — list with filters and paging, and read one
+- [x] `controllers/job.controller.ts`
+- [x] `routes/jobs.routes.ts` — this router is **public**: no `requireAuth`
+- [x] Migration `20261021150000_add_contract_job_type` — the `CONTRACT` job type
+- [x] Frontend: `src/lib/api/jobs.ts`, store actions `fetchJobs` /
+      `setJobFilters`, and `src/pages/Jobs.tsx` + `src/components/jobs/*`
+- [x] E2E: the board loads the seeded jobs and filtering narrows the results
+- [x] A development seed: `backend/prisma/seed.ts`, run with `npm run prisma:seed`
 
 `Job` belongs to `Company` via `companyId`, and `Job → Application` is
 `onDelete: Restrict`, so a job with applications cannot be deleted.
+
+**Notes on the finished work:**
+
+- **The router is public, and that is a deliberate split.** The job board is a
+  catalogue anyone can browse; everything a user owns lives behind `requireAuth` on
+  its own router. The read side of a resource and the write side of the same
+  resource do not have to share an auth policy.
+- **Jobs are read-only through the API.** A posting is reference data, like a company,
+  and letting any signed-up user edit the shared catalogue would be a moderation
+  problem the project has no answer for. The seed script is how jobs get in.
+- **Filtering, sorting and paging happen in the database**, not in memory, so the
+  result stays correct and fast as the catalogue grows. The search matches the title,
+  the company name and any of the listed skills.
+- **The count reads "Showing 4 of 20 jobs"** — the API returns the size of the whole
+  catalogue alongside the number that matched the filters.
+- **The locations in the metadata come from the whole catalogue**, not the current
+  page, so the dropdown keeps offering every location even when the first page is
+  full of postings from one city.
+- The job type filter sends the API's enum values rather than the labels the cards
+  display, because the value goes straight into the query string.
+- **Saved jobs are still client-side.** There is no endpoint for them and no
+  `SavedJob` model. They are persisted in the browser so they survive a refresh, but
+  they do not follow the account yet. A `SavedJob` model is the missing piece.
 
 ---
 
@@ -419,9 +444,12 @@ them as you go, or in one pass at the end.
 
 What turns "a project" into "a resume project".
 
-- [ ] **`prisma/seed.ts`** — populate companies, jobs, and DSA problems. The existing
+- [x] **`prisma/seed.ts`** — populate companies, jobs, and DSA problems. The existing
       `src/data/mockData.ts` is a ready-made seed source. Register it in
       `backend/package.json` and add a `prisma:seed` script.
+      **Done in 2.7** — the seed is self-contained in `backend/prisma/seed.ts` and runs
+      with `npm run prisma:seed`. It seeds 12 companies, 20 jobs and 24 DSA problems,
+      with fixed ids so it is safe to re-run.
 - [ ] **`docker-compose.yml`** — Postgres + API + web, one command to run the stack.
 - [ ] **Vitest + Supertest** — there are currently **no unit or integration tests**,
       only the browser e2e. Start with the auth service: register, login, me, logout,

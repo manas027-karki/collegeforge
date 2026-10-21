@@ -81,6 +81,7 @@ cd backend
 npm install
 cp .env.example .env        # then set your real PostgreSQL password
 npm run prisma:migrate
+npm run prisma:seed         # optional: a seeded job board and DSA catalogue
 npm run dev
 
 # terminal 2 — web on :5173
@@ -208,6 +209,7 @@ Placeholders live in `backend/.env.example`.
 | `npm run prisma:validate` | Validate `prisma/schema.prisma` |
 | `npm run prisma:generate` | Regenerate the Prisma client |
 | `npm run prisma:migrate` | Create/apply a development migration |
+| `npm run prisma:seed` | Fill the database with a demo job board and DSA catalogue |
 | `npm run prisma:studio` | Open Prisma Studio |
 
 ### Endpoints
@@ -244,7 +246,9 @@ Placeholders live in `backend/.env.example`.
 | `PATCH` | `/api/resumes/:id` | Partial resume update — `200` |
 | `POST` | `/api/resumes/:id/current` | Make a resume the current one — `200` |
 | `DELETE` | `/api/resumes/:id` | Delete a resume — `204` |
-| `ANY` | `/api/jobs/*` | `501` — scaffolded |
+| `GET` | `/api/jobs` | The public job board, filtered and paginated — `200` |
+| `GET` | `/api/jobs/:id` | Read one job — `200` |
+| `ANY` | `/api/applications/*` | `501` — scaffolded |
 | `ANY` | `/api/applications/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/dsa/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/projects/*` | `401` — behind `requireAuth` |
@@ -341,11 +345,11 @@ npm run prisma:migrate      # npx prisma migrate dev --name init
 
 ### Not implemented yet (by design)
 
-The job board and the applications pipeline still return `501` — those screens continue
-to read from mock data. Also outstanding: GitHub/LeetCode integrations, job scraping,
-AI, resume file storage, email, the notification service, rate limiting, and password
-reset. `requireAuth` rejects with `401` and never attaches a fabricated `req.user`, so
-no protected route can appear to work.
+The applications pipeline still returns `501` — that screen continues to read from mock
+data. Also outstanding: GitHub/LeetCode integrations, job scraping, AI, resume file
+storage, email, the notification service, rate limiting, and password reset.
+`requireAuth` rejects with `401` and never attaches a fabricated `req.user`, so no
+protected route can appear to work.
 
 ## 🧪 Testing
 
