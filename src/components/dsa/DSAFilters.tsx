@@ -1,5 +1,5 @@
 import { ChevronDown, Search, X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import type { Difficulty, ProblemStatus } from '../../types'
 import { useAppStore } from '../../store/useAppStore'
 import { Card } from '../Card'
@@ -28,13 +28,16 @@ function FilterSelect({
   onChange: (value: string) => void
   children: ReactNode
 }) {
+  const fieldId = useId()
+
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-neutral-500">
+      <label htmlFor={fieldId} className="mb-1.5 block text-xs font-medium text-neutral-500">
         {label}
       </label>
       <div className="relative">
         <select
+          id={fieldId}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={selectClass}
