@@ -1,6 +1,18 @@
 export const TODAY_ISO = '2026-09-20'
 
 /**
+ * Reduces an ISO timestamp to its calendar date.
+ *
+ * The API stores calendar dates at UTC midnight, so the leading
+ * `YYYY-MM-DD` of the timestamp is the date the user picked, in any
+ * timezone. Screens that group by day compare these strings, so they have
+ * to be date-only rather than full timestamps.
+ */
+export function toDateOnly(iso: string): string {
+  return iso.slice(0, 10)
+}
+
+/**
  * Parses a date string into a `Date`.
  *
  * Two formats reach this module: a date-only string like `2026-06-01`, which

@@ -8,6 +8,7 @@
  *   DELETE /api/projects/:id   delete a project
  */
 import { apiRequest } from './client'
+import { toDateOnly } from '../dates'
 import type { Project, ProjectInput, ProjectStatus } from '../../types'
 
 /**
@@ -48,16 +49,8 @@ export interface ProjectPayload {
 }
 
 /**
- * Reduces a timestamp to its calendar date.
- *
- * The API stores calendar dates at UTC midnight, so the leading
- * `YYYY-MM-DD` of the ISO string is the date the user picked, in any
- * timezone.
+ * Converts a project from the API into the app's shape.
  */
-const toDateOnly = (value: string | null): string | undefined =>
-  value ? value.slice(0, 10) : undefined
-
-/** Converts a project from the API into the app's shape. */
 export const toProject = (project: ApiProject): Project => ({
   id: project.id,
   name: project.name,
@@ -66,8 +59,8 @@ export const toProject = (project: ApiProject): Project => ({
   status: project.status,
   githubUrl: project.githubUrl ?? undefined,
   liveUrl: project.liveUrl ?? undefined,
-  startDate: toDateOnly(project.startDate),
-  endDate: toDateOnly(project.endDate),
+  startDate: project.startDate ? toDateOnly(project.startDate) : undefined,
+  endDate: project.endDate ? toDateOnly(project.endDate) : undefined,
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
 })
