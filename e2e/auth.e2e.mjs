@@ -437,7 +437,104 @@ async function main() {
     }
     check('project survives a reload', projectPersisted === true)
 
-    // --- 6. signing out locks the protected routes ------------------------
+    // --- 6. the study planner saves to the API ----------------------------
+    await session.send('Page.navigate', { url: `${APP_URL}/study` })
+
+    let plannerLoaded = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      plannerLoaded = await session.evaluate(
+        `document.body.innerText.includes('Add Task')`,
+      )
+      if (plannerLoaded) break
+    }
+    check('study planner loads', plannerLoaded === true)
+
+    await session.evaluate(`(() => {
+      const button = [...document.querySelectorAll('button')].find((b) =>
+        b.textContent.trim() === 'Add Task',
+      )
+      button?.click()
+      return true
+    })()`)
+
+    let taskModalOpen = false
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(300)
+      taskModalOpen = await session.evaluate(`!!document.querySelector('input[type="date"]')`)
+      if (taskModalOpen) break
+    }
+    check('task modal opens', taskModalOpen === true)
+
+    await session.evaluate(`(() => {
+      const setValue = (element, value) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')
+        descriptor.set.call(element, value)
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      const field = (label) => {
+        const node = [...document.querySelectorAll('label')].find(
+          (l) => l.textContent.trim() === label,
+        )
+        return node ? document.getElementById(node.getAttribute('for')) : null
+      }
+      setValue(field('Title'), 'E2E Study Task')
+      const due = document.querySelector('input[type="date"]')
+      if (due) setValue(due, '2026-12-24')
+      return true
+    })()`)
+
+    await session.evaluate(`(() => {
+      const form = document.querySelector('input[type="date"]')?.closest('form')
+      form?.requestSubmit()
+      return true
+    })()`)
+
+    let taskSaved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      taskSaved = await session.evaluate(
+        `document.body.innerText.includes('E2E Study Task')`,
+      )
+      if (taskSaved) break
+    }
+    check('study task saves through the API', taskSaved === true)
+
+    // Toggle it to completed and check the server agrees.
+    await session.evaluate(`(() => {
+      const toggle = document.querySelector('button[role="checkbox"]')
+      toggle?.click()
+      return true
+    })()`)
+
+    let toggled = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      toggled = await session.evaluate(`(() => {
+        const toggle = document.querySelector('button[role="checkbox"]')
+        return toggle?.getAttribute('aria-checked') === 'true'
+      })()`)
+      if (toggled) break
+    }
+    check('task toggles to completed', toggled === true)
+
+    // Reload and confirm the task and its status came back from the database.
+    await session.send('Page.reload', { ignoreCache: true })
+    let taskPersisted = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(500)
+      taskPersisted = await session.evaluate(`(() => {
+        const toggle = document.querySelector('button[role="checkbox"]')
+        return (
+          document.body.innerText.includes('E2E Study Task') &&
+          toggle?.getAttribute('aria-checked') === 'true'
+        )
+      })()`)
+      if (taskPersisted) break
+    }
+    check('study task and its status survive a reload', taskPersisted === true)
+
+    // --- 7. signing out locks the protected routes ------------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false
