@@ -99,15 +99,14 @@ each resource API lands:
 | File | Line | Reads |
 |---|---|---|
 | `src/pages/Jobs.tsx` | 11 | `mockData.jobs` |
-| `src/pages/DSA.tsx` | 90 | `mockData.dsaSolvedOverTime` |
-| `src/components/DsaProgressCard.tsx` | 38 | `mockData.dsaStats` |
 | `src/components/DeadlineList.tsx` | 33 | `mockData.deadlines` |
 | `src/components/NotificationsMenu.tsx` | 77 | `mockData.activities` |
 | `src/components/RecentActivity.tsx` | 20, 28 | `mockData.activities` |
 | `src/components/Sidebar.tsx` | 135 | `mockData.user.role` |
 
-The projects and study tasks no longer appear here: both are loaded from the API
-and live in the store, so the analytics screens read the user's real data.
+The projects, study tasks and DSA problems no longer appear here: all three are
+loaded from the API and live in the store, so the analytics screens read the user's
+real data.
 
 ---
 
@@ -272,16 +271,36 @@ before adding columns.
 
 Two resources, not one:
 
-- [ ] `validation/dsa.schemas.ts`
-- [ ] `services/dsa.service.ts` — the `DSAProblem` catalogue is **shared** across users,
-      while `DSAProgress` is per-user
-- [ ] `controllers/dsa.controller.ts` — problems CRUD + progress read/update
-- [ ] `routes/dsa.routes.ts`
-- [ ] Frontend: `src/pages/DSA.tsx`, `src/components/dsa/*`
+- [x] `validation/dsa.schemas.ts`
+- [x] `services/dsa.service.ts` — the `DSAProblem` list belongs to the user who
+      added it, while `DSAProgress` is the signed-in user's status and attempt
+      count on a problem
+- [x] `controllers/dsa.controller.ts` — problems CRUD + progress read/update
+- [x] `routes/dsa.routes.ts`
+- [x] Frontend: `src/lib/api/dsa.ts`, store actions `fetchDSAProblems` /
+      `addDSAProblem` / `updateDSAProblem` / `deleteDSAProblem` /
+      `markProblemSolved` / `markProblemUnsolved` / `recordAttempt`
+- [x] Frontend: `src/pages/DSA.tsx`, `src/components/dsa/*`
+- [x] E2E: a problem is added, marked solved, and survives a reload
 
 `DSAProblem` has no `userId` — it is shared reference data, like `Company`. But a
 problem created by one user is visible to all, so decide whether that is intended and
 write it down. `DSAProgress` is unique on `(userId, problemId)`.
+
+**Notes on the finished work:**
+
+- **The open question is resolved: problems are owned by their creator.** The model
+  gained a `userId` in migration `20261021090000_add_dsa_problem_owner`. A shared
+  catalogue had a real consequence: deleting a problem cascaded away *every* user's
+  progress on it, because the progress rows cascade with the problem. Owning them
+  also makes the resource consistent with every other one in the app.
+- **The attempt count is incremented by the server, not set by the client.** The
+  client already knows the status, so that is a set operation, but a count would be
+  a read-modify-write that two devices could race on.
+- **Marking a problem unsolved keeps the time it was last solved.** That timestamp
+  is history, not current state, and losing it would make the progress chart wrong.
+- The "problems solved over time" chart is derived from the user's own solves
+  (`buildMonthlySolvedSeries` in `src/lib/analytics.ts`) rather than a fixed series.
 
 ### 2.5 `resumes`
 
@@ -418,9 +437,10 @@ These were open when this document was written.
    and legal implications — a seed dataset or an official API is the safer choice for
    a portfolio project.
 
-3. **Whether `DSAProblem` is genuinely shared.** The model has no `userId`, so a
-   problem created by one user is visible to all. Intended, or should the catalogue be
-   curated and read-only?
+3. **Whether `DSAProblem` is genuinely shared.** ~~The model has no `userId`, so a
+   problem created by one user is visible to all.~~ **Resolved in 2.4:** problems are
+   owned by the user who added them, because a shared catalogue made deleting a
+   problem cascade away every other user's progress on it.
 
 4. **Session cleanup.** Expired sessions are deleted when they are used, but nothing
    sweeps rows that are never used again. The `sessions(user_id, expires_at)` index

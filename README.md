@@ -232,6 +232,12 @@ Placeholders live in `backend/.env.example`.
 | `PATCH` | `/api/study/tasks/:id` | Partial task update — `200` |
 | `POST` | `/api/study/tasks/:id/toggle` | Flip between To Do and Completed — `200` |
 | `DELETE` | `/api/study/tasks/:id` | Delete a task — `204` |
+| `GET` | `/api/dsa/problems` | The user's problems, each with their progress — `200` |
+| `POST` | `/api/dsa/problems` | Add a problem — `201` |
+| `GET` | `/api/dsa/problems/:id` | Read one problem — `200` |
+| `PATCH` | `/api/dsa/problems/:id` | Partial problem update — `200` |
+| `DELETE` | `/api/dsa/problems/:id` | Delete a problem — `204` |
+| `PATCH` | `/api/dsa/progress/:problemId` | Update the user's progress on a problem — `200` |
 | `ANY` | `/api/jobs/*` | `501` — scaffolded |
 | `ANY` | `/api/applications/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/dsa/*` | `401` — behind `requireAuth` |
@@ -329,12 +335,11 @@ npm run prisma:migrate      # npx prisma migrate dev --name init
 
 ### Not implemented yet (by design)
 
-The job board, applications, DSA tracker, and resume routes still return `501` —
-those screens continue to read from mock data. Also outstanding:
-GitHub/LeetCode integrations, job scraping, AI, resume file storage, email, the
-notification service, rate limiting, and password reset. `requireAuth` rejects with
-`401` and never attaches a fabricated `req.user`, so no protected route can appear to
-work.
+The job board, applications, and resume routes still return `501` — those screens
+continue to read from mock data. Also outstanding: GitHub/LeetCode integrations, job
+scraping, AI, resume file storage, email, the notification service, rate limiting, and
+password reset. `requireAuth` rejects with `401` and never attaches a fabricated
+`req.user`, so no protected route can appear to work.
 
 ## 🧪 Testing
 
