@@ -17,43 +17,19 @@ import { Prisma } from '../generated/prisma/client';
 import type { LoginInput, RegisterInput } from '../validation/auth.schemas';
 import { ApiError } from '../utils/ApiError';
 import { generateSessionToken, getSessionExpiry, hashSessionToken } from '../utils/session';
+import {
+  SAFE_USER_SELECT,
+  toSafeUser,
+  type SafeUser,
+} from './user.service';
 
 /**
- * The only user shape allowed to leave the service.
- *
- * Deliberately omits `passwordHash` and any session material. `createdAt` is a
- * `Date` here and becomes an ISO-8601 string once JSON-encoded.
+ * The safe-user projection and DTO live in `user.service.ts` — reading a user
+ * without credentials is a profile concern, and the auth flow is only one of
+ * its callers. They are re-exported here because the auth flow is the most
+ * common consumer.
  */
-export interface SafeUser {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  college: string | null;
-  degree: string | null;
-  graduationYear: number | null;
-  bio: string | null;
-  createdAt: Date;
-}
-
-/**
- * Prisma projection used for every user read in the auth flow.
- *
- * This allow-list is the actual security boundary: `passwordHash` is not
- * selected, so it cannot be read into memory, spread into a response, or
- * attached to `req.user` by accident.
- */
-export const SAFE_USER_SELECT = {
-  id: true,
-  name: true,
-  email: true,
-  phone: true,
-  college: true,
-  degree: true,
-  graduationYear: true,
-  bio: true,
-  createdAt: true,
-} satisfies Prisma.UserSelect;
+export { SAFE_USER_SELECT, type SafeUser } from './user.service';
 
 /** Extra column needed only to verify a password; never returned. */
 const LOGIN_USER_SELECT = {
@@ -97,38 +73,6 @@ const truncate = (value: string | null | undefined, max: number): string | undef
 
 const isUniqueViolation = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
-
-/** The row shape produced by `SAFE_USER_SELECT` / `LOGIN_USER_SELECT`. */
-type SelectedUser = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  college: string | null;
-  degree: string | null;
-  graduationYear: number | null;
-  bio: string | null;
-  createdAt: Date;
-};
-
-/**
- * Normalizes a selected user into the response DTO.
- *
- * Callers pass a projection that may include `passwordHash`; returning a fresh
- * object built from named fields means the hash cannot be spread into a
- * response by accident.
- */
-const toSafeUser = (user: SelectedUser & { passwordHash?: string }): SafeUser => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  phone: user.phone,
-  college: user.college,
-  degree: user.degree,
-  graduationYear: user.graduationYear,
-  bio: user.bio,
-  createdAt: user.createdAt,
-});
 
 /**
  * Creates a session row for a user and returns the raw token for the cookie.
@@ -280,14 +224,4 @@ export const authenticateUser = async (
   const session = await createSession(user.id, metadata, input.rememberMe);
 
   return { user, ...session };
-};
-
-/** Looks up a user by id for the profile routes. */
-export const findSafeUserById = async (id: string): Promise<SafeUser | null> => {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: SAFE_USER_SELECT,
-  });
-
-  return user ? toSafeUser(user) : null;
 };

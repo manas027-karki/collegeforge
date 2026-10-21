@@ -10,25 +10,9 @@
  * `httpOnly` cookie, which the browser attaches to these calls automatically.
  */
 import { apiRequest } from './client'
-import type { UserProfile } from '../../types'
+import type { ApiUser } from './user'
 
-/**
- * The user shape the API returns.
- *
- * Mirrors the backend's `SafeUser`: identity and profile only, with no
- * password hash and no session material.
- */
-export interface AuthUser {
-  id: string
-  name: string
-  email: string
-  phone: string | null
-  college: string | null
-  degree: string | null
-  graduationYear: number | null
-  bio: string | null
-  createdAt: string
-}
+export { toUserProfile, type ApiUser } from './user'
 
 export interface LoginCredentials {
   email: string
@@ -48,28 +32,10 @@ export interface RegisterInput {
   password: string
 }
 
-/**
- * Converts the API's user into the app's profile shape.
- *
- * The two models differ on purpose: the API stores a year as a number and
- * calls the field `name`, while the UI models a year as an optional string
- * and calls it `fullName`. Keeping the conversion here means the rest of the
- * app never has to think about it.
- */
-export const toUserProfile = (user: AuthUser): UserProfile => ({
-  fullName: user.name,
-  email: user.email,
-  phone: user.phone ?? undefined,
-  college: user.college ?? undefined,
-  degree: user.degree ?? undefined,
-  graduationYear: user.graduationYear != null ? String(user.graduationYear) : undefined,
-  bio: user.bio ?? undefined,
-})
-
 export const authApi = {
   /** Creates an account and signs the new user in. */
   register: (input: RegisterInput) =>
-    apiRequest<{ user: AuthUser }>({
+    apiRequest<{ user: ApiUser }>({
       method: 'POST',
       url: '/api/auth/register',
       data: input,
@@ -77,7 +43,7 @@ export const authApi = {
 
   /** Verifies credentials and signs the user in. */
   login: (credentials: LoginCredentials) =>
-    apiRequest<{ user: AuthUser }>({
+    apiRequest<{ user: ApiUser }>({
       method: 'POST',
       url: '/api/auth/login',
       data: credentials,
@@ -97,5 +63,5 @@ export const authApi = {
    * Rejects with a 401 `ApiRequestError` when there is no live session, which
    * is how the app decides whether a visitor is signed in.
    */
-  me: () => apiRequest<{ user: AuthUser }>({ method: 'GET', url: '/api/auth/me' }),
+  me: () => apiRequest<{ user: ApiUser }>({ method: 'GET', url: '/api/auth/me' }),
 }

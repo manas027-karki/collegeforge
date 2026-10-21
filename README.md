@@ -219,13 +219,14 @@ Placeholders live in `backend/.env.example`.
 | `POST` | `/api/auth/login` | Verify credentials and sign in — `200` |
 | `POST` | `/api/auth/logout` | Invalidate the session — `200` (always) |
 | `GET` | `/api/auth/me` | Current user for the session cookie — `200`, `401` when signed out |
+| `GET` | `/api/users/me` | The signed-in user's profile — `200` |
+| `PATCH` | `/api/users/me` | Partial profile update — `200` |
 | `ANY` | `/api/jobs/*` | `501` — scaffolded |
 | `ANY` | `/api/applications/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/dsa/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/projects/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/study/*` | `401` — behind `requireAuth` |
 | `ANY` | `/api/resumes/*` | `401` — behind `requireAuth` |
-| `ANY` | `/api/users/*` | `401` — behind `requireAuth` |
 | `ANY` | anything else | `404` |
 
 ```bash
@@ -317,11 +318,12 @@ npm run prisma:migrate      # npx prisma migrate dev --name init
 
 ### Not implemented yet (by design)
 
-Every resource route (jobs, applications, DSA, projects, study tasks, resumes, users) still
-returns `501` — those screens continue to read from mock data. Also outstanding:
-GitHub/LeetCode integrations, job scraping, AI, resume file storage, email, the notification
-service, rate limiting, and password reset. `requireAuth` rejects with `401` and never
-attaches a fabricated `req.user`, so no protected route can appear to work.
+Every resource route except the user profile (jobs, applications, DSA, projects, study
+tasks, resumes) still returns `501` — those screens continue to read from mock data.
+Also outstanding: GitHub/LeetCode integrations, job scraping, AI, resume file storage,
+email, the notification service, rate limiting, and password reset. `requireAuth`
+rejects with `401` and never attaches a fabricated `req.user`, so no protected route can
+appear to work.
 
 ## 🧪 Testing
 

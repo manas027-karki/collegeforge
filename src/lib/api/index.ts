@@ -5,4 +5,6 @@
  * so the transport can be swapped or mocked without touching call sites.
  */
 export { API_BASE_URL, ApiRequestError, apiClient, apiRequest, setUnauthorizedHandler } from './client'
-export { authApi, toUserProfile, type AuthUser } from './auth'
+export { authApi, type LoginCredentials, type RegisterInput } from './auth'
+export { toUserProfile, type ApiUser } from './user'
+export { usersApi, toUpdatePayload, type UpdateProfilePayload } from './users'

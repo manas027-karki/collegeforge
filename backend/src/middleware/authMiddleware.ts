@@ -22,10 +22,25 @@ import { ApiError } from '../utils/ApiError';
 export type AuthenticatedUser = SafeUser;
 
 /**
- * Columns to select when hydrating `req.user`. Re-exported from the service so
- * the middleware and the response DTO cannot drift apart.
+ * Columns to select when hydrating `req.user`. Re-exported from the user
+ * service so the middleware and the response DTO cannot drift apart.
  */
-export { SAFE_USER_SELECT } from '../services/auth.service';
+export { SAFE_USER_SELECT } from '../services/user.service';
+
+/**
+ * Returns the authenticated user, or throws.
+ *
+ * `requireAuth` has already resolved the session by the time a controller
+ * runs, so this is a type narrowing rather than a second check. It is
+ * exported so every authenticated controller does not repeat the same guard.
+ */
+export const currentUser = (req: Request): AuthenticatedUser => {
+  if (!req.user) {
+    throw ApiError.unauthorized('Not authenticated.');
+  }
+
+  return req.user;
+};
 
 const SESSION_REQUIRED_MESSAGE = 'Authentication required.';
 const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';

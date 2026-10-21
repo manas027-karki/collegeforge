@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { mockData } from '../data/mockData'
-import { ApiRequestError, authApi, setUnauthorizedHandler, toUserProfile } from '../lib/api'
+import {
+  ApiRequestError,
+  authApi,
+  setUnauthorizedHandler,
+  toUpdatePayload,
+  toUserProfile,
+  usersApi,
+} from '../lib/api'
 import { TODAY_ISO } from '../lib/dates'
 import type {
   Application,
@@ -49,6 +56,26 @@ interface AppState extends AuthState {
   resumeFilters: ResumeFilters
   /** True while a login or register request is in flight. */
   authPending: boolean
+  /** True while a profile save is in flight. */
+  profilePending: boolean
+  /** Last profile save failure, shown by the profile settings form. */
+  profileError: string | null
+  /**
+   * True once the profile has come from the API at least once.
+   *
+   * The profile form initializes its fields from the stored profile, so it
+   * must not render before there is a real one to initialize from.
+   */
+  profileLoaded: boolean
+  /**
+   * Increments every time the profile is (re)loaded from the API.
+   *
+   * The profile form uses this as its React `key`, so a refreshed profile
+   * replaces the form's fields. A save deliberately does not bump it: the
+   * form already holds the values it just sent, and remounting on every save
+   * would wipe the "saved" confirmation before it could be read.
+   */
+  profileVersion: number
 
   openSidebar: () => void
   closeSidebar: () => void
@@ -64,7 +91,8 @@ interface AppState extends AuthState {
   register: (input: { name: string; email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
   clearAuthError: () => void
-  updateProfile: (updates: Partial<UserProfile>) => void
+  fetchProfile: () => Promise<void>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => void
   setTheme: (theme: ThemePreference) => void
   setDensity: (density: DensityPreference) => void
@@ -115,6 +143,10 @@ export const useAppStore = create<AppState>()(
   authStatus: 'idle',
   authError: null,
   authPending: false,
+  profilePending: false,
+  profileError: null,
+  profileLoaded: false,
+  profileVersion: 0,
   profile: mockData.userProfile,
   notificationSettings: {
     applicationDeadlines: true,
@@ -170,15 +202,16 @@ export const useAppStore = create<AppState>()(
       if (ticket !== authRequestTicket) return
 
       const profile = toUserProfile(user)
-      set((state) => ({
+      set({
         isAuthenticated: true,
         currentUser: profile,
         authStatus: 'authenticated',
         authError: null,
-        // Only identity is synced here. The rest of the profile is edited in
-        // Settings and is not yet backed by an endpoint, so it is left alone.
-        profile: { ...state.profile, fullName: profile.fullName, email: profile.email },
-      }))
+        // The profile is server-backed now, so the whole thing is synced
+        // rather than just the identity fields.
+        profile,
+        profileLoaded: true,
+      })
     } catch {
       if (ticket !== authRequestTicket) return
 
@@ -209,6 +242,7 @@ export const useAppStore = create<AppState>()(
         // Signing in as a different account must not keep the previous
         // account's profile fields.
         profile,
+        profileLoaded: true,
       })
     } catch (error) {
       if (ticket !== authRequestTicket) return
@@ -245,6 +279,7 @@ export const useAppStore = create<AppState>()(
         authStatus: 'authenticated',
         authError: null,
         profile,
+        profileLoaded: true,
       })
     } catch (error) {
       if (ticket !== authRequestTicket) return
@@ -285,16 +320,71 @@ export const useAppStore = create<AppState>()(
 
   clearAuthError: () => set({ authError: null }),
 
-  updateProfile: (updates) =>
-    set((state) => {
-      const profile = { ...state.profile, ...updates }
-      return {
+  /**
+   * Reloads the profile from the API.
+   *
+   * Used when the Settings page opens, so the form always shows the stored
+   * values rather than whatever happened to be in local state. Unlike
+   * `updateProfile` this does not throw: it is a background refresh, and a
+   * failure is reported through `profileError` rather than an exception.
+   */
+  fetchProfile: async () => {
+    set({ profilePending: true, profileError: null })
+
+    try {
+      const { user } = await usersApi.getProfile()
+      const profile = toUserProfile(user)
+
+      set((state) => ({
         profile,
-        ...(state.currentUser
-          ? { currentUser: { ...state.currentUser, ...updates } }
-          : {}),
-      }
-    }),
+        currentUser: state.currentUser ? { ...state.currentUser, ...profile } : profile,
+        profilePending: false,
+        profileLoaded: true,
+        // A refreshed profile replaces the form's fields.
+        profileVersion: state.profileVersion + 1,
+      }))
+    } catch (error) {
+      set({
+        profilePending: false,
+        profileError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your profile right now.',
+      })
+    }
+  },
+
+  /**
+   * Saves the profile to the API.
+   *
+   * The server is the source of truth: the response carries the stored
+   * profile, which replaces the local copy rather than the client's own input
+   * being assumed to have been written as sent.
+   */
+  updateProfile: async (updates) => {
+    set({ profilePending: true, profileError: null })
+
+    try {
+      const { user } = await usersApi.updateProfile(toUpdatePayload(updates))
+      const profile = toUserProfile(user)
+
+      set((state) => ({
+        profile,
+        currentUser: state.currentUser ? { ...state.currentUser, ...profile } : profile,
+        profilePending: false,
+        profileError: null,
+      }))
+    } catch (error) {
+      set({
+        profilePending: false,
+        profileError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to save your profile right now. Please try again.',
+      })
+      throw error
+    }
+  },
 
   updateNotificationSettings: (updates) =>
     set((state) => ({

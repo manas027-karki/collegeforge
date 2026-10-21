@@ -262,7 +262,105 @@ async function main() {
     check('session survives a reload', reloaded.path === '/dashboard', reloaded.path)
     check('dashboard still renders after reload', reloaded.hasGreeting === true)
 
-    // --- 4. signing out locks the protected routes ------------------------
+    // --- 4. the profile saves to the API and survives a reload ------------
+    await session.send('Page.navigate', { url: `${APP_URL}/settings` })
+
+    let formReady = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      formReady = await session.evaluate(
+        `!!document.querySelector('input[autocomplete="name"]')`,
+      )
+      if (formReady) break
+    }
+    check('profile form loads', formReady === true)
+
+    // Fill the form by label, so the test does not depend on field order.
+    const savedProfile = {
+      fullName: 'E2E Tester',
+      phone: '+91 98765 43210',
+      graduationYear: '2028',
+      college: 'Maharaja Surajmal Institute of Technology',
+      degree: 'B.Tech Information Technology',
+      bio: 'Final year student.',
+    }
+
+    await session.evaluate(`(() => {
+      const setValue = (element, value) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')
+        descriptor.set.call(element, value)
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      const field = (label) => {
+        const node = [...document.querySelectorAll('label')].find(
+          (l) => l.textContent.trim() === label,
+        )
+        return node ? document.getElementById(node.getAttribute('for')) : null
+      }
+      const values = ${JSON.stringify({
+        'Full Name': savedProfile.fullName,
+        Phone: savedProfile.phone,
+        'Graduation Year': savedProfile.graduationYear,
+        College: savedProfile.college,
+        Degree: savedProfile.degree,
+      })}
+      for (const [label, value] of Object.entries(values)) {
+        const target = field(label)
+        if (target) setValue(target, value)
+      }
+      const bio = document.getElementById('profile-bio')
+      if (bio) setValue(bio, ${JSON.stringify(savedProfile.bio)})
+      return true
+    })()`)
+
+    await session.evaluate(`(() => {
+      const form = document.querySelector('form')
+      form.requestSubmit()
+      return true
+    })()`)
+
+    let saved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      saved = await session.evaluate(
+        `document.body.innerText.includes('Profile updated successfully.')`,
+      )
+      if (saved) break
+    }
+    check('profile saves through the API', saved === true)
+
+    // Reload and confirm the values came back from the database rather than
+    // from local state.
+    await session.send('Page.reload', { ignoreCache: true })
+    let persisted = null
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(500)
+      persisted = await session.evaluate(`(() => {
+        const field = (label) => {
+          const node = [...document.querySelectorAll('label')].find(
+            (l) => l.textContent.trim() === label,
+          )
+          return node ? document.getElementById(node.getAttribute('for')) : null
+        }
+        return {
+          college: field('College')?.value ?? null,
+          degree: field('Degree')?.value ?? null,
+          year: field('Graduation Year')?.value ?? null,
+          phone: field('Phone')?.value ?? null,
+        }
+      })()`)
+      if (persisted?.college) break
+    }
+    check(
+      'profile survives a reload',
+      persisted?.college === savedProfile.college &&
+        persisted?.degree === savedProfile.degree &&
+        persisted?.year === savedProfile.graduationYear &&
+        persisted?.phone === savedProfile.phone,
+      JSON.stringify(persisted),
+    )
+
+    // --- 5. signing out locks the protected routes ------------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false

@@ -168,17 +168,35 @@ Each item below is a checkbox. Tick them as you go.
 
 ### 2.1 `users/me` — profile
 
-- [ ] `validation/user.schemas.ts` — `updateProfileSchema` (name, phone, college, degree,
+- [x] `validation/user.schemas.ts` — `updateProfileSchema` (name, phone, college, degree,
       `graduationYear` as an int, bio)
-- [ ] `services/user.service.ts` — `findSafeUserById` already exists in `auth.service.ts`
-      and can be reused; add `updateProfile`
-- [ ] `controllers/user.controller.ts` — `GET /me`, `PATCH /me`
-- [ ] `routes/users.routes.ts` — replace `notImplemented('Users')`
-- [ ] Frontend: `src/lib/api/users.ts`, store actions `fetchProfile` / `updateProfile`
-- [ ] Frontend: `ProfileSettings.tsx` should call the API instead of only the store
+- [x] `services/user.service.ts` — owns `SafeUser`, `SAFE_USER_SELECT`, `toSafeUser`,
+      `findSafeUserById` and `updateProfile`. The auth service now imports from it
+      rather than defining the projection itself, so the dependency points from auth
+      to user.
+- [x] `controllers/user.controller.ts` — `GET /me`, `PATCH /me`
+- [x] `routes/users.routes.ts` — replaced `notImplemented('Users')`
+- [x] Frontend: `src/lib/api/users.ts` and `src/lib/api/user.ts` (the shared `ApiUser`
+      shape and the `toUserProfile` mapper)
+- [x] Frontend: store actions `fetchProfile` / `updateProfile`
+- [x] Frontend: `ProfileSettings.tsx` saves through the API, shows a pending state and
+      an error tone
+- [x] E2E: the profile saves and survives a reload
 
 `graduationYear` is an `Int?` in the database and a `string` in the frontend
 (`src/types.ts`). Convert at the API boundary, the same way `auth.ts` does.
+
+**Notes on the finished work:**
+
+- The schema is `.strict()`, so `email` and `password` are rejected with a 400. The
+  email is the sign-in identity and changing it needs a verification flow, so the
+  form renders it read-only.
+- `null` clears a field; omitting it leaves the field alone. That distinction is what
+  makes the endpoint a real partial update, and it is why the service assembles the
+  Prisma update field by field instead of spreading the input.
+- The form is keyed on `profileVersion`, which only increments when the profile is
+  *fetched*. Keying it on the profile itself would remount the form after every save
+  and wipe the "saved" confirmation before it could be read.
 
 ### 2.2 `projects`
 

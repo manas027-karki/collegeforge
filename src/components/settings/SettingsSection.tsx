@@ -1,4 +1,4 @@
-import { CheckCircle2, Info, TriangleAlert, X, type LucideIcon } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Info, TriangleAlert, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, type ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
@@ -76,7 +76,7 @@ export function SettingsToggle({ checked, label, onChange }: SettingsToggleProps
   )
 }
 
-type FeedbackTone = 'success' | 'info' | 'warning'
+type FeedbackTone = 'success' | 'info' | 'warning' | 'error'
 
 interface SettingsFeedbackProps {
   message: string
@@ -88,10 +88,18 @@ const feedbackToneMap: Record<FeedbackTone, string> = {
   success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   info: 'border-primary-200 bg-primary-50 text-primary-800',
   warning: 'border-amber-200 bg-amber-50 text-amber-800',
+  error: 'border-rose-200 bg-rose-50 text-rose-800',
 }
 
 export function SettingsFeedback({ message, tone = 'success', className }: SettingsFeedbackProps) {
-  const Icon = tone === 'success' ? CheckCircle2 : tone === 'warning' ? TriangleAlert : Info
+  const Icon =
+    tone === 'success'
+      ? CheckCircle2
+      : tone === 'warning'
+        ? TriangleAlert
+        : tone === 'error'
+          ? CircleAlert
+          : Info
 
   return (
     <div
