@@ -4,7 +4,10 @@ import { mockData } from '../data/mockData'
 import {
   ApiRequestError,
   authApi,
+  projectsApi,
   setUnauthorizedHandler,
+  toProject,
+  toProjectPayload,
   toUpdatePayload,
   toUserProfile,
   usersApi,
@@ -44,6 +47,10 @@ interface AppState extends AuthState {
   reduceAnimations: boolean
   applications: Application[]
   projects: Project[]
+  /** True while the project portfolio is being loaded from the API. */
+  projectsLoading: boolean
+  /** Last project error, shown on the projects screen. */
+  projectsError: string | null
   tasks: StudyTask[]
   studyTaskFilters: StudyTaskFilters
   dashboardStats: DashboardStats
@@ -97,15 +104,16 @@ interface AppState extends AuthState {
   setTheme: (theme: ThemePreference) => void
   setDensity: (density: DensityPreference) => void
   setReduceAnimations: (reduceAnimations: boolean) => void
-  resetDemoData: () => void
+  resetDemoData: () => Promise<void>
   addApplication: (application: Application) => void
   updateApplication: (id: string, updates: ApplicationInput) => void
   deleteApplication: (id: string) => void
   updateApplicationStatus: (id: string, status: ApplicationStatus) => void
   toggleJobSaved: (jobId: string) => void
-  addProject: (project: Project) => void
-  updateProject: (id: string, updates: ProjectInput) => void
-  deleteProject: (id: string) => void
+  fetchProjects: () => Promise<void>
+  createProject: (values: ProjectInput) => Promise<void>
+  updateProject: (id: string, values: ProjectInput) => Promise<void>
+  deleteProject: (id: string) => Promise<void>
   setProjectFilters: (filters: Partial<ProjectFilters>) => void
   addResume: (input: ResumeInput) => void
   updateResume: (id: string, updates: Partial<Resume>) => void
@@ -136,7 +144,7 @@ let authRequestTicket = 0
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
   sidebarOpen: false,
   isAuthenticated: false,
   currentUser: null,
@@ -163,7 +171,9 @@ export const useAppStore = create<AppState>()(
   density: 'comfortable',
   reduceAnimations: false,
   applications: mockData.applications,
-  projects: mockData.projects,
+  projects: [],
+  projectsLoading: false,
+  projectsError: null,
   tasks: mockData.studyTasks,
   studyTaskFilters: {
     search: '',
@@ -395,10 +405,9 @@ export const useAppStore = create<AppState>()(
   setDensity: (density) => set({ density }),
   setReduceAnimations: (reduceAnimations) => set({ reduceAnimations }),
 
-  resetDemoData: () =>
+  resetDemoData: async () => {
     set({
       applications: [...mockData.applications],
-      projects: [...mockData.projects],
       tasks: [...mockData.studyTasks],
       studyTaskFilters: {
         search: '',
@@ -415,7 +424,12 @@ export const useAppStore = create<AppState>()(
       projectFilters: { search: '', status: 'ALL', technology: '' },
       resumes: [...mockData.resumes],
       resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
-    }),
+    })
+
+    // The portfolio is server-owned now, so it is reloaded rather than reset
+    // to mock rows that do not exist in the database.
+    await get().fetchProjects()
+  },
 
   addApplication: (application) =>
     set((state) => ({
@@ -452,22 +466,93 @@ export const useAppStore = create<AppState>()(
         : [...state.jobsSaved, jobId],
     })),
 
-  addProject: (project) =>
-    set((state) => ({ projects: [project, ...state.projects] })),
+  /**
+   * Loads the user's projects from the API.
+   *
+   * The portfolio is owned by the account, so it is loaded once when the
+   * authenticated shell mounts and every screen renders from the store.
+   */
+  fetchProjects: async () => {
+    set({ projectsLoading: true, projectsError: null })
 
-  updateProject: (id, updates) =>
-    set((state) => ({
-      projects: state.projects.map((project) =>
-        project.id === id
-          ? { ...project, ...updates, updatedAt: TODAY_ISO }
-          : project,
-      ),
-    })),
+    try {
+      const { data } = await projectsApi.list()
+      set({ projects: data.map(toProject), projectsLoading: false })
+    } catch (error) {
+      set({
+        projectsLoading: false,
+        projectsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your projects right now.',
+      })
+    }
+  },
 
-  deleteProject: (id) =>
-    set((state) => ({
-      projects: state.projects.filter((project) => project.id !== id),
-    })),
+  /**
+   * Creates a project and puts it in the store.
+   *
+   * The API returns the stored project, so the store holds the server's
+   * version rather than a local guess.
+   */
+  createProject: async (values) => {
+    set({ projectsError: null })
+
+    try {
+      const { data } = await projectsApi.create(toProjectPayload(values))
+      set((state) => ({ projects: [toProject(data), ...state.projects] }))
+    } catch (error) {
+      set({
+        projectsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to save the project right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Updates a project and replaces it in the store with the stored version. */
+  updateProject: async (id, values) => {
+    set({ projectsError: null })
+
+    try {
+      const { data } = await projectsApi.update(id, toProjectPayload(values))
+      set((state) => ({
+        projects: state.projects.map((project) =>
+          project.id === id ? toProject(data) : project,
+        ),
+      }))
+    } catch (error) {
+      set({
+        projectsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the project right now.',
+      })
+      throw error
+    }
+  },
+
+  /** Deletes a project and drops it from the store. */
+  deleteProject: async (id) => {
+    set({ projectsError: null })
+
+    try {
+      await projectsApi.remove(id)
+      set((state) => ({
+        projects: state.projects.filter((project) => project.id !== id),
+      }))
+    } catch (error) {
+      set({
+        projectsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to delete the project right now.',
+      })
+      throw error
+    }
+  },
 
   setProjectFilters: (filters) =>
     set((state) => ({ projectFilters: { ...state.projectFilters, ...filters } })),

@@ -360,7 +360,84 @@ async function main() {
       JSON.stringify(persisted),
     )
 
-    // --- 5. signing out locks the protected routes ------------------------
+    // --- 5. the project portfolio saves to the API -------------------------
+    await session.send('Page.navigate', { url: `${APP_URL}/projects` })
+
+    let projectsLoaded = false
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(500)
+      projectsLoaded = await session.evaluate(
+        `document.body.innerText.includes('Add Project')`,
+      )
+      if (projectsLoaded) break
+    }
+    check('projects screen loads', projectsLoaded === true)
+
+    // Open the modal and fill it in.
+    await session.evaluate(`(() => {
+      const button = [...document.querySelectorAll('button')].find((b) =>
+        b.textContent.trim() === 'Add Project',
+      )
+      button?.click()
+      return true
+    })()`)
+
+    let modalOpen = false
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(300)
+      modalOpen = await session.evaluate(`!!document.getElementById('project-description')`)
+      if (modalOpen) break
+    }
+    check('project modal opens', modalOpen === true)
+
+    await session.evaluate(`(() => {
+      const setValue = (element, value) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')
+        descriptor.set.call(element, value)
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      const field = (label) => {
+        const node = [...document.querySelectorAll('label')].find(
+          (l) => l.textContent.trim() === label,
+        )
+        return node ? document.getElementById(node.getAttribute('for')) : null
+      }
+      setValue(field('Project Name'), 'E2E Project')
+      setValue(document.getElementById('project-description'), 'Created by the end-to-end test.')
+      const github = field('GitHub URL')
+      if (github) setValue(github, 'https://github.com/example/e2e-project')
+      return true
+    })()`)
+
+    await session.evaluate(`(() => {
+      const form = document.getElementById('project-modal-title')?.closest('form')
+      form?.requestSubmit()
+      return true
+    })()`)
+
+    let projectSaved = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(400)
+      projectSaved = await session.evaluate(
+        `document.body.innerText.includes('E2E Project')`,
+      )
+      if (projectSaved) break
+    }
+    check('project saves through the API', projectSaved === true)
+
+    // Reload and confirm it came back from the database.
+    await session.send('Page.reload', { ignoreCache: true })
+    let projectPersisted = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await sleep(500)
+      projectPersisted = await session.evaluate(
+        `document.body.innerText.includes('E2E Project')`,
+      )
+      if (projectPersisted) break
+    }
+    check('project survives a reload', projectPersisted === true)
+
+    // --- 6. signing out locks the protected routes ------------------------
     // Wait for the sidebar button to exist: on a narrow viewport the sidebar
     // is translated off-screen, and the click would silently do nothing.
     let logoutClicked = false

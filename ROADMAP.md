@@ -200,18 +200,39 @@ Each item below is a checkbox. Tick them as you go.
 
 ### 2.2 `projects`
 
-- [ ] `validation/project.schemas.ts`
-- [ ] `services/project.service.ts` — list / create / update / delete, all scoped to
+- [x] `validation/project.schemas.ts`
+- [x] `services/project.service.ts` — list / create / update / delete, all scoped to
       `req.user.id`
-- [ ] `controllers/project.controller.ts`
-- [ ] `routes/projects.routes.ts`
-- [ ] Frontend: replace the store's local CRUD with API calls
-- [ ] Frontend: `src/pages/Projects.tsx` + `src/components/projects/*` stop using the store
-      arrays directly and render from fetched state
+- [x] `controllers/project.controller.ts`
+- [x] `routes/projects.routes.ts`
+- [x] Frontend: `src/lib/api/projects.ts`, store actions `fetchProjects` /
+      `createProject` / `updateProject` / `deleteProject`
+- [x] Frontend: `src/pages/Projects.tsx` + `src/components/projects/*` render from
+      fetched state
+- [x] E2E: a project is created through the UI and survives a reload
 
 The Prisma model uses `technologies String[]` and a `ProjectStatus` enum
 (`PLANNED | IN_PROGRESS | COMPLETED | ARCHIVED`). The frontend type uses
 `technologies: string[]` and the same status values, so this one maps cleanly.
+
+**Notes on the finished work:**
+
+- **Tenant isolation is enforced in the service, not the controller.** Reads filter on
+  `userId`; writes use `updateMany` and `deleteMany` with `{ id, userId }` rather than
+  `update`/`delete`, because those take a plain filter and make the owner check
+  impossible to forget. A project belonging to another account answers `404`, exactly
+  like one that never existed.
+- **A schema with a default breaks partial updates.** The first version of the
+  validation reused one `technologies` schema for both create and update, and its
+  `.default([])` filled the field in when it was absent — so a patch that only changed
+  the name silently wiped the technologies. The default now lives on the create schema
+  only. The same bug also let an empty `PATCH` body through the "at least one field"
+  check, because the defaulted value made the body look non-empty.
+- **Dates are stored at UTC midnight** and come back as a `YYYY-MM-DD` string, so the
+  date the user picked is the date that is shown, in any timezone. `src/lib/dates.ts`
+  now parses both date-only strings and full API timestamps.
+- The portfolio is loaded once when the authenticated shell mounts, so the analytics
+  screens read the same store.
 
 ### 2.3 `study` (study tasks)
 

@@ -1,4 +1,4 @@
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, LoaderCircle, X } from 'lucide-react'
 import {
   useEffect,
   useState,
@@ -13,8 +13,10 @@ import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from './projectMeta'
 interface ProjectModalProps {
   project: Project | null
   suggestions: string[]
+  /** True while the save request is in flight. */
+  saving?: boolean
   onClose: () => void
-  onSave: (values: ProjectInput) => void
+  onSave: (values: ProjectInput) => void | Promise<void>
 }
 
 interface FormState {
@@ -132,6 +134,7 @@ function TechnologyInput({
 export function ProjectModal({
   project,
   suggestions,
+  saving = false,
   onClose,
   onSave,
 }: ProjectModalProps) {
@@ -160,13 +163,15 @@ export function ProjectModal({
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
 
+    if (saving) return
+
     const nextErrors: FormErrors = {}
     if (!values.name.trim()) nextErrors.name = 'Project name is required.'
     if (!values.description.trim()) nextErrors.description = 'Description is required.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    onSave({
+    void onSave({
       name: values.name.trim(),
       description: values.description.trim(),
       technologies: values.technologies,
@@ -325,11 +330,20 @@ export function ProjectModal({
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-neutral-100 bg-neutral-50/50 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit">
-            {project ? 'Save changes' : 'Add project'}
+          <Button type="submit" disabled={saving}>
+            {saving ? (
+              <>
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : project ? (
+              'Save changes'
+            ) : (
+              'Add project'
+            )}
           </Button>
         </div>
       </form>

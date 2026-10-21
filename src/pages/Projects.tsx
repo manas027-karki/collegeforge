@@ -19,15 +19,16 @@ import { ProjectGrid } from '../components/projects/ProjectGrid'
 import { ProjectModal } from '../components/projects/ProjectModal'
 import { filterProjects } from '../components/projects/projectFilter'
 import { StatCard } from '../components/StatCard'
-import { TODAY_ISO } from '../lib/dates'
 import { useAppStore } from '../store/useAppStore'
 import type { Project, ProjectInput } from '../types'
 
 export function Projects() {
   const projects = useAppStore((s) => s.projects)
+  const projectsLoading = useAppStore((s) => s.projectsLoading)
+  const projectsError = useAppStore((s) => s.projectsError)
   const projectFilters = useAppStore((s) => s.projectFilters)
   const setProjectFilters = useAppStore((s) => s.setProjectFilters)
-  const addProject = useAppStore((s) => s.addProject)
+  const createProject = useAppStore((s) => s.createProject)
   const updateProject = useAppStore((s) => s.updateProject)
   const deleteProject = useAppStore((s) => s.deleteProject)
 
@@ -35,6 +36,7 @@ export function Projects() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [detailsProject, setDetailsProject] = useState<Project | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const technologies = useMemo(
     () => [...new Set(projects.flatMap((project) => project.technologies))].sort(),
@@ -76,27 +78,35 @@ export function Projects() {
     setEditingProject(null)
   }
 
-  const handleSave = (values: ProjectInput) => {
-    if (editingProject) {
-      updateProject(editingProject.id, values)
-    } else {
-      addProject({
-        id: `proj-${Date.now()}`,
-        createdAt: TODAY_ISO,
-        updatedAt: TODAY_ISO,
-        ...values,
-      })
+  const handleSave = async (values: ProjectInput) => {
+    setSaving(true)
+    try {
+      if (editingProject) {
+        await updateProject(editingProject.id, values)
+      } else {
+        await createProject(values)
+      }
+      closeModal()
+    } catch {
+      // The store already recorded the reason; it is shown below.
+    } finally {
+      setSaving(false)
     }
-    closeModal()
   }
 
   const handleResetFilters = () => {
     setProjectFilters({ search: '', status: 'ALL', technology: 'ALL' })
   }
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) deleteProject(deleteTarget.id)
-    setDeleteTarget(null)
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteProject(deleteTarget.id)
+    } catch {
+      // The store already recorded the reason.
+    } finally {
+      setDeleteTarget(null)
+    }
   }
 
   return (
@@ -174,7 +184,22 @@ export function Projects() {
         onClear={handleResetFilters}
       />
 
-      {projects.length === 0 ? (
+      {projectsError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+        >
+          {projectsError}
+        </p>
+      ) : null}
+
+      {projectsLoading ? (
+        <EmptyState
+          icon={FolderKanban}
+          title="Loading your projects"
+          description="Fetching your portfolio from the server."
+        />
+      ) : projects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"
@@ -210,6 +235,7 @@ export function Projects() {
         <ProjectModal
           project={editingProject}
           suggestions={technologies}
+          saving={saving}
           onClose={closeModal}
           onSave={handleSave}
         />

@@ -7,10 +7,17 @@ import { useAppStore } from '../store/useAppStore'
 export function DashboardLayout() {
   const { pathname } = useLocation()
   const closeSidebar = useAppStore((s) => s.closeSidebar)
+  const fetchProjects = useAppStore((s) => s.fetchProjects)
 
   useEffect(() => {
     closeSidebar()
   }, [pathname, closeSidebar])
+
+  // The portfolio belongs to the account, so it is loaded once when the
+  // authenticated shell mounts and every screen renders from the store.
+  useEffect(() => {
+    void fetchProjects()
+  }, [fetchProjects])
 
   return (
     <div className="min-h-screen bg-neutral-50">
