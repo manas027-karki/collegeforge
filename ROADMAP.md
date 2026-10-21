@@ -3,6 +3,9 @@
 A working handoff document. Read the **Quick start** and **Current state** sections,
 then pick up the first task in **Phase 2** that is not already ticked.
 
+**[AGENTS.md](./AGENTS.md)** holds the working agreements: how to structure a change,
+how to commit it, and the mistakes that have already been made in this repo.
+
 Last updated: after commit `23b2daa` (Phase 1 complete: frontend wired to the auth API).
 
 ---

@@ -394,6 +394,9 @@ careerforge/
 > **[ROADMAP.md](./ROADMAP.md)** is the working document: the current state, the
 > conventions to follow, every remaining task broken down file by file, the known
 > bugs, and the open decisions. Start there.
+>
+> **[AGENTS.md](./AGENTS.md)** holds the working agreements — how to structure a
+> change, how to commit it, and the rules that have already been broken once.
 
 - [x] Project setup, design system, routing, layout, dashboard, mock data
 - [x] Settings & integrations UI
