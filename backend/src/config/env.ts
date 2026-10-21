@@ -76,7 +76,6 @@ export const env = {
   frontendUrls: parsedEnv.data.FRONTEND_URL.split(',')
     .map((entry) => entry.trim())
     .filter(Boolean),
-  frontendUrl: parsedEnv.data.FRONTEND_URL.split(',')[0].trim(),
   cookieName: parsedEnv.data.COOKIE_NAME,
   cookieSameSite: parsedEnv.data.COOKIE_SAME_SITE,
   sessionDurationDays: parsedEnv.data.SESSION_DURATION_DAYS,
