@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+*.log
+.env
+.DS_Store
+coverage
+.cursor
+.vscode
+tests
+__tests__
+*.local
+prisma/migrations
+src/generated
