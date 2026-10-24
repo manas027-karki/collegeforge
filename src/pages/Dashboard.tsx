@@ -4,6 +4,7 @@ import {
   FolderKanban,
   Inbox,
 } from 'lucide-react'
+import { useMemo } from 'react'
 import { ApplicationPipeline } from '../components/ApplicationPipeline'
 import { DeadlineList } from '../components/DeadlineList'
 import { DsaProgressCard } from '../components/DsaProgressCard'
@@ -11,10 +12,30 @@ import { RecentActivity } from '../components/RecentActivity'
 import { StatCard } from '../components/StatCard'
 import { useAppStore } from '../store/useAppStore'
 
+const ACTIVE_APPLICATION_STATUSES = ['SAVED', 'APPLIED', 'OA', 'INTERVIEW'] as const
+
 export function Dashboard() {
-  const stats = useAppStore((s) => s.dashboardStats)
   const profile = useAppStore((s) => s.profile)
+  const applications = useAppStore((s) => s.applications)
+  const projects = useAppStore((s) => s.projects)
+  const dsaProgress = useAppStore((s) => s.dsaProgress)
   const firstName = profile.fullName.trim().split(/\s+/)[0] || profile.fullName
+
+  const stats = useMemo(() => {
+    const solvedCount = dsaProgress.filter((progress) => progress.status === 'SOLVED').length
+    const activeApplications = applications.filter((application) =>
+      ACTIVE_APPLICATION_STATUSES.includes(application.status as (typeof ACTIVE_APPLICATION_STATUSES)[number]),
+    ).length
+    const interviews = applications.filter((application) => application.status === 'INTERVIEW').length
+    const completedProjects = projects.filter((project) => project.status === 'COMPLETED').length
+
+    return {
+      dsaProblems: solvedCount,
+      applications: activeApplications,
+      interviews,
+      projects: completedProjects,
+    }
+  }, [applications, dsaProgress, projects])
 
   return (
     <div className="space-y-6">
@@ -38,7 +59,6 @@ export function Dashboard() {
             description="Problems solved"
             icon={Binary}
             tone="primary"
-            delta="+12 this month"
           />
           <StatCard
             label="Applications"
@@ -46,7 +66,6 @@ export function Dashboard() {
             description="Active applications"
             icon={Inbox}
             tone="blue"
-            delta="+6 this week"
           />
           <StatCard
             label="Interviews"

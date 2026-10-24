@@ -1,5 +1,5 @@
 import { Monitor, Moon, Rows2, Rows3, Sparkles, Sun, type LucideIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { DensityPreference, ThemePreference } from '../../types'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../Button'
@@ -120,12 +120,7 @@ export function AppearanceSettings() {
   })
   const [feedback, setFeedback] = useState('')
 
-  useEffect(() => {
-    const root = document.documentElement
-    root.dataset.theme = savedTheme
-    root.dataset.density = savedDensity
-    root.dataset.reduceAnimations = String(savedReduceAnimations)
-  }, [savedTheme, savedDensity, savedReduceAnimations])
+  // Theme is applied globally by ThemeApplier so preferences persist across routes.
 
   const updateDraft = <Key extends keyof AppearanceDraft>(key: Key, value: AppearanceDraft[Key]) => {
     setDraft((current) => ({ ...current, [key]: value }))

@@ -1318,6 +1318,11 @@ export const useAppStore = create<AppState>()(
         // endpoint for them yet, so they are kept in the browser. They
         // survive a refresh this way.
         jobsSaved: state.jobsSaved,
+        // Appearance preferences persist across sessions.
+        theme: state.theme,
+        density: state.density,
+        reduceAnimations: state.reduceAnimations,
+        notificationSettings: state.notificationSettings,
       }),
     },
   ),

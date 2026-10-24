@@ -1,6 +1,6 @@
-import { Bell, CheckCircle2, FolderKanban, Inbox, PenLine, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { mockData } from '../data/mockData'
+﻿import { Bell, CheckCircle2, FolderKanban, Inbox, PenLine, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAppStore } from '../store/useAppStore'
 import type { ActivityType } from '../types'
 import { cn } from '../lib/cn'
 
@@ -14,6 +14,60 @@ const activityIcon = {
 export function NotificationsMenu() {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const applications = useAppStore((s) => s.applications)
+  const projects = useAppStore((s) => s.projects)
+  const tasks = useAppStore((s) => s.tasks)
+  const dsaProgress = useAppStore((s) => s.dsaProgress)
+  const dsaProblems = useAppStore((s) => s.dsaProblems)
+
+  const activities = useMemo(() => {
+    const items: Array<{ id: string; title: string; type: ActivityType; timestamp: string }> = []
+
+    projects.slice(0, 2).forEach((project) => {
+      items.push({
+        id: `project-${project.id}`,
+        title: `Project updated: ${project.name}`,
+        type: 'project',
+        timestamp: project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : 'Recently',
+      })
+    })
+
+    applications.slice(0, 3).forEach((application) => {
+      items.push({
+        id: `application-${application.id}`,
+        title: `Application: ${application.company} - ${application.status}`,
+        type: 'application',
+        timestamp: application.appliedAt || 'Recently',
+      })
+    })
+
+    tasks
+      .filter((task) => task.status === 'COMPLETED')
+      .slice(0, 2)
+      .forEach((task) => {
+        items.push({
+          id: `task-${task.id}`,
+          title: `Task completed: ${task.title}`,
+          type: 'task',
+          timestamp: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Recently',
+        })
+      })
+
+    dsaProgress
+      .filter((progress) => progress.status === 'SOLVED' && progress.lastSolvedAt)
+      .slice(0, 2)
+      .forEach((progress) => {
+        const problem = dsaProblems.find((p) => p.id === progress.problemId)
+        items.push({
+          id: `dsa-${progress.problemId}`,
+          title: problem ? `Solved: ${problem.title}` : 'Solved a DSA problem',
+          type: 'dsa',
+          timestamp: progress.lastSolvedAt ? new Date(progress.lastSolvedAt).toLocaleDateString() : 'Recently',
+        })
+      })
+
+    return items.slice(0, 6)
+  }, [applications, dsaProblems, dsaProgress, projects, tasks])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -50,10 +104,12 @@ export function NotificationsMenu() {
         className="relative rounded-lg p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
       >
         <Bell aria-hidden="true" className="h-5 w-5" />
-        <span
-          aria-hidden="true"
-          className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary-500 ring-2 ring-white"
-        />
+        {activities.length > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary-500 ring-2 ring-white"
+          />
+        ) : null}
       </button>
 
       {open ? (
@@ -74,31 +130,35 @@ export function NotificationsMenu() {
             </button>
           </div>
           <ul className="max-h-80 overflow-y-auto">
-            {mockData.activities.map((activity) => {
-              const config = activityIcon[activity.type]
-              const Icon = config.icon
-              return (
-                <li
-                  key={activity.id}
-                  className="flex items-start gap-3 border-b border-neutral-50 px-4 py-3 hover:bg-neutral-50"
-                >
-                  <span
-                    className={cn(
-                      'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                      config.className,
-                    )}
+            {activities.length === 0 ? (
+              <li className="px-4 py-3 text-sm text-neutral-500">No notifications yet.</li>
+            ) : (
+              activities.map((activity) => {
+                const config = activityIcon[activity.type]
+                const Icon = config.icon
+                return (
+                  <li
+                    key={activity.id}
+                    className="flex items-start gap-3 border-b border-neutral-50 px-4 py-3 hover:bg-neutral-50"
                   >
-                    <Icon aria-hidden="true" className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-900">
-                      {activity.title}
-                    </p>
-                    <p className="text-xs text-neutral-500">{activity.timestamp}</p>
-                  </div>
-                </li>
-              )
-            })}
+                    <span
+                      className={cn(
+                        'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                        config.className,
+                      )}
+                    >
+                      <Icon aria-hidden="true" className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900">
+                        {activity.title}
+                      </p>
+                      <p className="text-xs text-neutral-500">{activity.timestamp}</p>
+                    </div>
+                  </li>
+                )
+              })
+            )}
           </ul>
         </div>
       ) : null}

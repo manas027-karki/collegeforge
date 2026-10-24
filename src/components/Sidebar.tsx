@@ -2,7 +2,6 @@ import { Hammer, LogOut } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { footerNavItems, navItems } from '../config/navigation'
-import { mockData } from '../data/mockData'
 import { cn } from '../lib/cn'
 import { useAppStore } from '../store/useAppStore'
 import { Avatar } from './Avatar'
@@ -132,7 +131,7 @@ export function Sidebar() {
             <Avatar label={displayName} className="h-9 w-9 text-sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-neutral-900">{displayName}</p>
-              <p className="truncate text-xs text-neutral-500">{mockData.user.role}</p>
+              <p className="truncate text-xs text-neutral-500">{[profile.degree, profile.college].filter(Boolean).join(' · ') || 'Student'}</p>
             </div>
             <button
               type="button"

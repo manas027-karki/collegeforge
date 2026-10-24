@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
@@ -28,6 +30,25 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+  }
+
+  html[data-density='compact'] {
+    font-size: 14px;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  html[data-theme='dark'] body {
+    background-color: var(--color-neutral-950);
+    color: var(--color-neutral-50);
+  }
+
+  html[data-theme='dark'] *,
+  html[data-theme='dark'] ::before,
+  html[data-theme='dark'] ::after {
+    border-color: var(--color-neutral-800);
   }
 
   body {

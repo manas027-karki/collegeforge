@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AuthLayout } from './components/auth/AuthLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './components/routing/ProtectedRoute'
+import { ThemeApplier } from './components/ThemeApplier'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { Analytics } from './pages/Analytics'
 import { Applications } from './pages/Applications'
@@ -28,6 +29,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ThemeApplier />
       <Routes>
         <Route element={<PublicOnlyRoute />}>
           <Route element={<AuthLayout />}>
