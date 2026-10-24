@@ -31,6 +31,8 @@ import type {
 
 export function Applications() {
   const applications = useAppStore((s) => s.applications)
+  const applicationsLoading = useAppStore((s) => s.applicationsLoading)
+  const applicationsError = useAppStore((s) => s.applicationsError)
   const addApplication = useAppStore((s) => s.addApplication)
   const updateApplication = useAppStore((s) => s.updateApplication)
   const deleteApplication = useAppStore((s) => s.deleteApplication)
@@ -102,21 +104,35 @@ export function Applications() {
     setEditingApplication(null)
   }
 
-  const handleSave = (values: ApplicationInput) => {
-    if (editingApplication) {
-      updateApplication(editingApplication.id, values)
-    } else {
-      addApplication({ id: `app-${Date.now()}`, ...values })
+  const handleSave = async (values: ApplicationInput) => {
+    try {
+      if (editingApplication) {
+        await updateApplication(editingApplication.id, values)
+      } else {
+        await addApplication(values)
+      }
+      closeModal()
+    } catch {
+      // The store surfaces the error; keep the modal open so the user can retry.
     }
-    closeModal()
   }
 
-  const handleStatusChange = (id: string, nextStatus: ApplicationStatus) => {
-    updateApplicationStatus(id, nextStatus)
+  const handleStatusChange = async (id: string, nextStatus: ApplicationStatus) => {
+    try {
+      await updateApplicationStatus(id, nextStatus)
+    } catch {
+      // The store surfaces the error.
+    }
   }
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) deleteApplication(deleteTarget.id)
+  const handleConfirmDelete = async () => {
+    if (deleteTarget) {
+      try {
+        await deleteApplication(deleteTarget.id)
+      } catch {
+        // The store surfaces the error.
+      }
+    }
     setDeleteTarget(null)
   }
 
@@ -136,6 +152,15 @@ export function Applications() {
           Add Application
         </Button>
       </section>
+
+      {applicationsError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-800"
+        >
+          {applicationsError}
+        </p>
+      ) : null}
 
       <section
         aria-label="Application statistics"
@@ -194,7 +219,13 @@ export function Applications() {
         onClear={handleReset}
       />
 
-      {applications.length === 0 ? (
+      {applicationsLoading ? (
+        <EmptyState
+          icon={Inbox}
+          title="Loading your applications"
+          description="Fetching your application pipeline from the server."
+        />
+      ) : applications.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="No applications yet"
