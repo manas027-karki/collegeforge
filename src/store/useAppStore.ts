@@ -3,12 +3,15 @@ import { persist } from 'zustand/middleware'
 import { mockData } from '../data/mockData'
 import {
   ApiRequestError,
+  applicationsApi,
   authApi,
   dsaApi,
   jobsApi,
   projectsApi,
   resumesApi,
   setUnauthorizedHandler,
+  toApplication,
+  toApplicationPayload,
   toDSAProblemPayload,
   toDSAState,
   toJob,
@@ -58,6 +61,10 @@ interface AppState extends AuthState {
   density: DensityPreference
   reduceAnimations: boolean
   applications: Application[]
+  /** True while the applications are being loaded from the API. */
+  applicationsLoading: boolean
+  /** Last application error, shown on the applications screen. */
+  applicationsError: string | null
   projects: Project[]
   /** True while the project portfolio is being loaded from the API. */
   projectsLoading: boolean
@@ -147,10 +154,11 @@ interface AppState extends AuthState {
   setDensity: (density: DensityPreference) => void
   setReduceAnimations: (reduceAnimations: boolean) => void
   resetDemoData: () => Promise<void>
-  addApplication: (application: Application) => void
-  updateApplication: (id: string, updates: ApplicationInput) => void
-  deleteApplication: (id: string) => void
-  updateApplicationStatus: (id: string, status: ApplicationStatus) => void
+  fetchApplications: () => Promise<void>
+  addApplication: (application: ApplicationInput) => Promise<void>
+  updateApplication: (id: string, updates: ApplicationInput) => Promise<void>
+  deleteApplication: (id: string) => Promise<void>
+  updateApplicationStatus: (id: string, status: ApplicationStatus) => Promise<void>
   toggleJobSaved: (jobId: string) => void
   fetchJobs: () => Promise<void>
   setJobFilters: (filters: Partial<JobFilters>) => void
@@ -217,7 +225,9 @@ export const useAppStore = create<AppState>()(
   theme: 'light',
   density: 'comfortable',
   reduceAnimations: false,
-  applications: mockData.applications,
+  applications: [],
+  applicationsLoading: false,
+  applicationsError: null,
   projects: [],
   projectsLoading: false,
   projectsError: null,
@@ -478,7 +488,6 @@ export const useAppStore = create<AppState>()(
 
   resetDemoData: async () => {
     set({
-      applications: [...mockData.applications],
       studyTaskFilters: {
         search: '',
         status: 'ALL',
@@ -496,40 +505,123 @@ export const useAppStore = create<AppState>()(
       resumeFilters: { search: '', status: 'ALL', fileType: 'ALL', sort: 'NEWEST' },
     })
 
-    // The portfolio and the study plan are server-owned now, so they are
+    // The portfolio, study plan and applications are server-owned now, so they are
     // reloaded rather than reset to mock rows that do not exist in the
     // database.
     await get().fetchProjects()
     await get().fetchStudyTasks()
+    await get().fetchApplications()
   },
 
-  addApplication: (application) =>
-    set((state) => ({
-      applications: [application, ...state.applications],
-    })),
+  /**
+   * Loads the user's applications from the API.
+   */
+  fetchApplications: async () => {
+    set({ applicationsLoading: true, applicationsError: null })
 
-  updateApplication: (id, updates) =>
-    set((state) => ({
-      applications: state.applications.map((application) =>
-        application.id === id ? { ...application, ...updates } : application,
-      ),
-    })),
+    try {
+      const { data } = await applicationsApi.list()
+      set({ applications: data.map(toApplication), applicationsLoading: false })
+    } catch (error) {
+      set({
+        applicationsLoading: false,
+        applicationsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to load your applications right now.',
+      })
+    }
+  },
 
-  deleteApplication: (id) =>
-    set((state) => ({
-      applications: state.applications.filter((application) => application.id !== id),
-    })),
+  /**
+   * Creates an application and puts it in the store.
+   */
+  addApplication: async (values) => {
+    set({ applicationsError: null })
 
-  updateApplicationStatus: (id, status) =>
-    set((state) => ({
-      applications: state.applications.map((application) =>
-        application.id === id
-          ? application.status === status
-            ? application
-            : { ...application, status }
-          : application,
-      ),
-    })),
+    try {
+      const { data } = await applicationsApi.create(toApplicationPayload(values))
+      set((state) => ({ applications: [toApplication(data), ...state.applications] }))
+    } catch (error) {
+      set({
+        applicationsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to save the application right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Updates an application and replaces it in the store with the stored version.
+   */
+  updateApplication: async (id, values) => {
+    set({ applicationsError: null })
+
+    try {
+      const { data } = await applicationsApi.update(id, toApplicationPayload(values))
+      set((state) => ({
+        applications: state.applications.map((application) =>
+          application.id === id ? toApplication(data) : application,
+        ),
+      }))
+    } catch (error) {
+      set({
+        applicationsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the application right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Deletes an application and drops it from the store.
+   */
+  deleteApplication: async (id) => {
+    set({ applicationsError: null })
+
+    try {
+      await applicationsApi.remove(id)
+      set((state) => ({
+        applications: state.applications.filter((application) => application.id !== id),
+      }))
+    } catch (error) {
+      set({
+        applicationsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to delete the application right now.',
+      })
+      throw error
+    }
+  },
+
+  /**
+   * Updates just the status of an application.
+   */
+  updateApplicationStatus: async (id, status) => {
+    set({ applicationsError: null })
+
+    try {
+      const { data } = await applicationsApi.updateStatus(id, status)
+      set((state) => ({
+        applications: state.applications.map((application) =>
+          application.id === id ? toApplication(data) : application,
+        ),
+      }))
+    } catch (error) {
+      set({
+        applicationsError:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Unable to update the application status right now.',
+      })
+      throw error
+    }
+  },
 
   /**
    * Loads the job board from the API.
